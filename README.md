@@ -1,4 +1,4 @@
 Iridium
 =======
 
-Interactive Eye Diffraction Library
+(more coming soon...)
