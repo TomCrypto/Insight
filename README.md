@@ -1,5 +1,5 @@
-Iridium (WIP)
-=============
+Iridium
+=======
 
 <p align="justify">
 The Iridium library aims to bring interactive, high quality, and physically accurate human eye diffraction features to HDR-capable software, such as video games or computer graphics renderers. The library is designed to be unobtrusive yet highly configurable, and takes full advantage of modern graphics hardware. Iridium is tuned for use in DirectX 11 applications and is developed in C#, though the code can be readily ported to other languages.
@@ -35,12 +35,12 @@ Documentation
 -------------
 
 <p align="justify">
-A complete API documentation is provided for the Iridium library, along with some theoretical background helpful in understanding how to make optimal use the library, and is available in the Portable Document Format (PDF).
+A complete API documentation is provided for the Iridium library, along with some theoretical background helpful in understanding how to correctly use the library, and is available in the Portable Document Format (PDF).
 </p>
 
 Compatibility
 -------------
 
 <p align="justify">
-Iridium runs under any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the library is fairly generic, and alternative implementations may choose to follow it.
+Iridium runs under any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the library is fairly generic, and alternative implementations may well choose to follow it.
 </p>
