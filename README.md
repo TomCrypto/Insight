@@ -42,5 +42,5 @@ Compatibility
 -------------
 
 <p align="justify">
-The reference implementation and the accompanying sample should work under  any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the Iridium library is fairly generic, and alternative implementations may choose to follow it.
+Iridium should work under any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the library is fairly generic, and alternative implementations may choose to follow it.
 </p>
