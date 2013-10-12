@@ -1,5 +1,5 @@
-Iridium
-=======
+Iridium (WIP)
+=============
 
 <p align="justify">
 The Iridium library aims to bring interactive, high quality, and physically accurate human eye diffraction features to HDR-capable software, such as video games or computer graphics renderers. The library is designed to be unobtrusive yet highly configurable, and takes full advantage of modern graphics hardware. Iridium is tuned for use in DirectX 11 applications and is developed in C#, though the code can be readily ported to other languages.
@@ -13,18 +13,18 @@ Build Instructions
 ------------------
 
 <p align="justify">
-The included C# solution contains two projects, the library itself and an accompanying sample. The latter depends on the former, but if you are using Visual Studio 2012 this should be largely transparent. To compile the library and try out the sample, simply build the solution and run the sample project.
+The included C# solution contains two projects, the library itself and an accompanying sample. The latter depends on the former, but if you are using Visual Studio 2012 this should be largely transparent. To compile the library and try out the sample, simply build the solution inside the source folder, and run the sample.
 </p>
 
 <p align="justify">
-Both the library and the sample are powered by the <a href="http://sharpdx.org/" title="SharpDX Home Page">SharpDX</a> project, and require DirectX 11. The SharpDX binaries are served via NuGet as part of the build process, however should this not work for any reason, you can always download the latest SharpDX release and adjust the references in both projects as required.
+Both the library and the sample are powered by the <a href="http://sharpdx.org/" title="SharpDX Home Page">SharpDX</a> project, and require DirectX 11. The SharpDX binaries are served via NuGet as part of the build process, however should this not work for any reason, you can always download the latest SharpDX release and adjust assembly references in both projects as required.
 </p>
 
 Sample Program
 --------------
 
 <p align="justify">
-The provided sample is intended to showcase the library. It features many real-time configuration options, and lets the user navigate a simple HDR environment while observing the diffraction effects rendered by Iridium.
+The provided sample is intended to showcase the library. It features many real-time configuration options, and allows the user to navigate a simple HDR environment while observing the diffraction effects rendered by Iridium.
 </p>
 
 <p align="center">
@@ -35,12 +35,12 @@ Documentation
 -------------
 
 <p align="justify">
-A complete API documentation is provided for the Iridium library, along with some theoretical background helpful in understanding how to properly use the library, and is available in the Portable Document Format (PDF).
+A complete API documentation is provided for the Iridium library, along with some theoretical background helpful in understanding how to make optimal use the library, and is available in the Portable Document Format (PDF).
 </p>
 
 Compatibility
 -------------
 
 <p align="justify">
-Iridium should work under any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the library is fairly generic, and alternative implementations may choose to follow it.
+Iridium runs under any platform which supports DirectX 11 - in other words, Windows Vista and up. However, the API exposed by the library is fairly generic, and alternative implementations may choose to follow it.
 </p>
