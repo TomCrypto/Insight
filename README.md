@@ -13,7 +13,7 @@ Build Instructions
 ------------------
 
 <p align="justify">
-The included C# solution contains two projects, the library itself and an accompanying sample. The latter depends on the former, but if you are using Visual Studio 2012 this should be largely transparent. To compile the library and try out the sample, simply build the solution inside the source folder, and run the sample.
+The included C# solution contains two projects, the library itself and an accompanying sample. The latter depends on the former, but if you are using Visual Studio 2012 this should be largely transparent. To compile the library and try out the sample, simply build the solution inside the source folder, and run the sample project.
 </p>
 
 <p align="justify">
@@ -24,7 +24,7 @@ Sample Program
 --------------
 
 <p align="justify">
-The provided sample is intended to showcase the library. It features many real-time configuration options, and allows the user to navigate a simple HDR environment while observing the diffraction effects rendered by Iridium.
+The provided sample is intended to showcase the library. It features many real-time configuration options, and lets the user navigate a simple HDR environment while observing the diffraction effects rendered by Iridium.
 </p>
 
 <p align="center">
