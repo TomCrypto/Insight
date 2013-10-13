@@ -1,4 +1,4 @@
-﻿namespace Fraunhofer
+﻿namespace Sample
 {
     partial class MainForm
     {

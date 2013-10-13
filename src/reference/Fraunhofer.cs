@@ -5,7 +5,7 @@ using SharpDX.DXGI;
 using SharpDX.Direct3D11;
 using Device = SharpDX.Direct3D11.Device;
 
-namespace Fraunhofer
+namespace Iridium
 {
     public struct LensFilterDescription
     {

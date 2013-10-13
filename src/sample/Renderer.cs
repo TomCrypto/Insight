@@ -11,7 +11,9 @@ using SharpDX.Direct3D11;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
-namespace Fraunhofer
+using Iridium;
+
+namespace Sample
 {
     enum DisplayState
     {

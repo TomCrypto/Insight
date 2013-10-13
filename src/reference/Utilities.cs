@@ -13,7 +13,7 @@ using Buffer = SharpDX.Direct3D11.Buffer;
 using Resource = SharpDX.Direct3D11.Resource;
 using MapFlags = SharpDX.Direct3D11.MapFlags;
 
-namespace Fraunhofer
+namespace Iridium
 {
     /// <summary>
     /// A graphics resource which can be bound for input and output (SRV/RT).

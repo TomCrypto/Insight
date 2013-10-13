@@ -12,7 +12,9 @@ using Microsoft.VisualBasic;
 using SharpDX.Direct3D11;
 using SharpDX;
 
-namespace Fraunhofer
+using Iridium;
+
+namespace Sample
 {
     public partial class MainForm : Form
     {
