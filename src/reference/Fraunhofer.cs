@@ -117,6 +117,8 @@ namespace Iridium
 
         public ShaderProcessor Processor { get; private set; }
 
+        private SurfacePass pass;
+
         //public SpectralTerm[] spectralTerms { get; private set; }
 
         private ApertureDefinition apertureDefinition;
@@ -132,6 +134,8 @@ namespace Iridium
 
         public LensFilter(Device device, LensFilterDescription description)
         {
+            //pass = new SurfacePass(device);
+
             Description = description;
             Device = device;
 
@@ -207,6 +211,34 @@ namespace Iridium
 	            return float4(aperture.Sample(texSampler, input.uv.xy * inverseScale).xyz, 1.0f);
             }
             ");
+
+            /*pass.Pass(Device, @"
+            texture2D aperture : register(t0);
+
+            SamplerState texSampler
+            {
+                Filter = MIN_MAG_MIP_LINEAR;
+                AddressU = Border;
+                AddressV = Border;
+                BorderColor = float4(0, 0, 0, 1);
+            };
+
+            cbuffer params
+            {
+	            float inverseScale;
+            };
+
+            struct PS_IN
+            {
+	            float4 pos : SV_POSITION;
+	            float2 tex :    TEXCOORD;
+            };
+
+            float4 main(PS_IN input) : SV_Target
+            {
+	            return float4(aperture.Sample(texSampler, input.tex.xy * inverseScale).xyz, 1.0f);
+            }
+            ", spectralAperture.RT, new[] { aperture.SRV }, stream);*/
 
             stream.Dispose();
         }
@@ -319,19 +351,10 @@ namespace Iridium
 
             Device.ImmediateContext.GenerateMips(filter.SRV);
 
-            DataStream stream = new DataStream(4, true, true);
-            stream.Write<int>(GraphicsUtils.MipLevels(GraphicsUtils.TextureSize(filter.Resource)));
-            stream.Position = 0;
-
             /* Here we render to a 1x1 texture to fetch the lowest mip level's value (as an RGB value). */
 
-            Processor.ExecuteShader(Device, filterNormalization.RT, new ShaderResourceView[] { filter.SRV }, stream, @"
+            Processor.ExecuteShader(Device, filterNormalization.RT, new ShaderResourceView[] { filter.SRV }, null, @"
             texture2D filterMips : register(t1);
-
-            cbuffer LOD
-            {
-                int level;
-            }
 
             struct VS_IN
             {
@@ -347,13 +370,14 @@ namespace Iridium
 
             float4 main(PS_IN input) : SV_Target
             {
-                return float4(filterMips.Load(int3(0, 0, level - 1)).xyz, 1.0f);
+                uint w, h, m;
+
+                filterMips.GetDimensions(0, w, h, m);
+                return float4(filterMips.Load(int3(0, 0, m - 1)).xyz, 1.0f);
             }
             ");
 
-            stream.Dispose();
-
-            stream = new DataStream(16, true, true);
+            DataStream stream = new DataStream(16, true, true);
             stream.Write<uint>((uint)Description.apertureSize.Width);
             stream.Write<uint>((uint)Description.apertureSize.Height);
             stream.Position = 0;
@@ -593,7 +617,7 @@ namespace Iridium
                 filterFFT.Dispose();
 
                 Processor.Dispose();
-                
+                //pass.Dispose();
             }
         }
 

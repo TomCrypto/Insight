@@ -33,6 +33,8 @@ namespace Sample
         private GraphicsResource intermediate;
         private GraphicsResource renderBrightness;
 
+        private Iridium.Iridium iridium;
+
         public LensFilter LensFilter { get; private set; }
 
         private DisplayState displayState = DisplayState.APERTURE_TRANSMISSION_FUNCTION;
@@ -80,7 +82,6 @@ namespace Sample
             Factory factory = new Factory();
             var adapter = factory.GetAdapter(0);
 
-
             device = new Device(adapter, DeviceCreationFlags.Debug);
             //device = new Device(SharpDX.Direct3D.DriverType.Hardware, DeviceCreationFlags.SingleThreaded);
             stopWatch = new Stopwatch();
@@ -109,6 +110,8 @@ namespace Sample
                 apertureSize = new Size(dimensions.Width, dimensions.Height),
                 frameSize = new Size(dimensions.Width, dimensions.Height),
             });
+
+            iridium = new Iridium.Iridium(device, new Size(600, 600), RenderQuality.Low, new OpticalProfile());
         }
 
         /// <summary>
@@ -315,7 +318,8 @@ namespace Sample
                     break;
 
                 case DisplayState.ORIGINAL_FRAME:
-                    SynthesizeFrame(intermediate.RT);
+                    LensFilter.RenderAperture(intermediate.RT);
+                    iridium.Augment(intermediate.Resource);
                     Tonemap(intermediate);
                     break;
 

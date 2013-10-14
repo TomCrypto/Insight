@@ -12,28 +12,32 @@ namespace Iridium
     public enum RenderQuality
     {
         /// <summary>
-        /// Low quality: aperture rendered at 256×256 resolution, maximum convolution dimensions 512×512 pixels. Extremely fast, for low-end computers.
+        /// Low quality: aperture rendered at 256×256 resolution, convolution dimensions 512×512 pixels.
+        /// Very fast, for low-end computers.
         /// </summary>
         Low,
         /// <summary>
-        /// Medium quality: aperture rendered at 512×512 resolution, maximum convolution dimensions 1024×1024 pixels. Good performance/accuracy balance.
+        /// Medium quality: aperture rendered at 512×512 resolution, convolution dimensions 1024×1024 pixels.
+        /// Good performance/accuracy balance.
         /// </summary>
         Medium,
         /// <summary>
-        /// High quality: aperture rendered at 1024×1024 resolution, maximum convolution dimensions 2048×2048 pixels. For high-end graphics cards only.
+        /// High quality: aperture rendered at 1024×1024 resolution, convolution dimensions 2048×2048 pixels.
+        /// For high-end graphics cards only.
         /// </summary>
         High,
         /// <summary>
-        /// Optimal quality: aperture rendered at 2048×2048 resolution, maximum convolution dimensions 4096×4096 pixels. Intended for use in offline rendering.
+        /// Optimal quality: aperture rendered at 2048×2048 resolution, convolution dimensions 4096×4096 pixels.
+        /// Intended for use in offline rendering.
         /// </summary>
         Optimal,
     }
 
     /// <summary>
-    /// Describes how the eye lens aperture should look, and directly influences
-    /// the appearance of diffraction effects.
+    /// Describes some of the biological and optical properties of the eye
+    /// being simulated, influencing the resulting diffraction effects.
     /// </summary>
-    public struct LensProfile
+    public struct OpticalProfile
     {
         // put stuff here
     }
@@ -43,34 +47,63 @@ namespace Iridium
     /// </summary>
     public sealed class Iridium
     {
+        private OpticalProfile profile;
         private RenderQuality quality;
-        private LensProfile profile;
         private Size dimensions;
         private double time;
+
+        private DiffractionEngine diffraction;
+        private ConvolutionEngine convolution;
+
+        /// <summary>
+        /// The graphics device used by this Iridium instance.
+        /// </summary>
+        public Device Device { get; private set; }
+
+        /// <summary>
+        /// A SurfacePass instance. You can use it if needed to save resources.
+        /// </summary>
+        public SurfacePass Pass { get; private set; }
+
+        /// <summary>
+        /// The optical profile currently used for rendering diffraction effects.
+        /// </summary>
+        public OpticalProfile Profile { get; set; }
 
         /// <summary>
         /// The render quality currently used for rendering diffraction effects.
         /// </summary>
         public RenderQuality Quality
         {
-            get { return quality; }
-            set
+            get
             {
-                quality = value;
-                // do something
+                return quality;
             }
-        }
 
-        /// <summary>
-        /// The lens profile currently used for rendering diffraction effects.
-        /// </summary>
-        public LensProfile Profile
-        {
-            get { return profile; }
             set
             {
-                profile = value;
-                // do something
+                if (diffraction != null) diffraction.Dispose();
+                //if (convolution != null) convolution.Dispose();
+
+                switch (quality = value)
+                {
+                    case RenderQuality.Low:
+                        diffraction = new DiffractionEngine(Device, new Size(600, 600));
+                        // convolution = ...
+                        break;
+                    case RenderQuality.Medium:
+                        diffraction = new DiffractionEngine(Device, new Size(512, 512));
+                        // convolution = ...
+                        break;
+                    case RenderQuality.High:
+                        diffraction = new DiffractionEngine(Device, new Size(1024, 1024));
+                        // convolution = ...
+                        break;
+                    case RenderQuality.Optimal:
+                        diffraction = new DiffractionEngine(Device, new Size(2048, 2048));
+                        // convolution = ...
+                        break;
+                }
             }
         }
 
@@ -79,39 +112,52 @@ namespace Iridium
         /// </summary>
         public Size Dimensions
         {
-            get { return dimensions; }
+            get
+            {
+                return dimensions;
+            }
+
             set
             {
-                if (value == null) throw new ArgumentNullException("The surface dimensions cannot be null.");
-
-                dimensions = value;
-                // do something
+                if (value != null) dimensions = value;
+                else throw new ArgumentNullException("The surface dimensions cannot be null.");
             }
         }
 
         /// <summary>
-        /// Initializes an Iridium instance with custom settings.
+        /// Creates an Iridium instance with custom settings. The graphics device
+        /// will be reused, but will not be disposed of at instance destruction.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
         /// <param name="dimensions">The target surface dimensions.</param>
         /// <param name="quality">The required render quality.</param>
-        /// <param name="profile">The desired lens profile.</param>
-        public Iridium(Device device, Size dimensions, RenderQuality quality, LensProfile profile)
+        /// <param name="profile">The desired optical profile.</param>
+        public Iridium(Device device, Size dimensions, RenderQuality quality, OpticalProfile profile)
         {
-            Dimensions = dimensions;    /* Check dimensions. */
+            Device = device;            /* Store the device. */
             Quality = quality;          /* Validate quality. */
             Profile = profile;          /* Use lens profile. */
+            Dimensions = dimensions;    /* Check dimensions. */
+
+            Pass = new SurfacePass(device);
         }
 
         /// <summary>
         /// Superimposes eye diffraction effects on a texture, created with render target
         /// and shader resource bind flags. The texture should have a high dynamic range.
         /// </summary>
-        /// <param name="device">The graphics device to use.</param>
         /// <param name="surface">The source and destination texture.</param>
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
-        public void Augment(Device device, Texture2D surface, double dt = 0)
+        public void Augment(Texture2D surface, double dt = 0)
         {
+            ShaderResourceView srv = new ShaderResourceView(Device, surface);
+            RenderTargetView rtv = new RenderTargetView(Device, surface);
+
+            diffraction.Diffract(Device, Pass, rtv, srv);
+
+            srv.Dispose();
+            rtv.Dispose();
+
             time += dt;
         }
     }

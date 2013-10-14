@@ -261,6 +261,7 @@ namespace Iridium
             device.ImmediateContext.PixelShader.SetConstantBuffer(0, constantBuffer);
             if (inputs != null) device.ImmediateContext.PixelShader.SetShaderResources(1, inputs);
 
+            PreparePersistentShaderResources(device);
             device.ImmediateContext.Draw(6, 0);
         }
 
@@ -444,7 +445,7 @@ namespace Iridium
 
         public static int MipLevels(Size size)
         {
-            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2)) - 0;
+            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2));
         }
     }
 }

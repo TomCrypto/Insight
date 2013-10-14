@@ -70,8 +70,15 @@ namespace Iridium
 
             float4 main(PS_IN input) : SV_Target
             {
-	            uint x = int(input.uv.x * width);
-	            uint y = int(input.uv.y * height);
+                uint w, h, m;
+
+                inTex.GetDimensions(0, w, h, m);
+
+                uint x = int(input.uv.x * w);
+                uint y = int(input.uv.y * h);
+
+	            /*uint x = int(input.uv.x * width);
+	            uint y = int(input.uv.y * height);*/
 
 	            uint2 val = uint2(asuint(inTex.Sample(texSampler, input.uv.xy).x), 0);
 
