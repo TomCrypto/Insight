@@ -17,7 +17,7 @@ namespace Iridium
     {
         private Dictionary<String, PixelShader> shaders = new Dictionary<String, PixelShader>();
         private const ShaderFlags ShaderFlag = ShaderFlags.OptimizationLevel3;
-        private const int ConstantBufferSize = 16384; /* bytes */
+        private const int ConstantBufferSize = 1024; /* bytes */
         private RasterizerState rasterizerState;
         private VertexShader quadVertexShader;
         private Buffer constantBuffer;

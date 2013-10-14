@@ -351,6 +351,7 @@ namespace Sample
             if (disposing)
             {
                 LensFilter.Dispose();
+                iridium.Dispose();
 
                 renderBrightness.Dispose();
                 intermediate.Dispose();
