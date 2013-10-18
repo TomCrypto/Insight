@@ -319,7 +319,7 @@ namespace Sample
 
                 case DisplayState.ORIGINAL_FRAME:
                     LensFilter.RenderAperture(intermediate.RT);
-                    iridium.Augment(intermediate.Resource);
+                    iridium.Augment(intermediate.Resource, 1.0/60.0);
                     Tonemap(intermediate);
                     break;
 

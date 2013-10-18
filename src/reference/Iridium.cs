@@ -179,18 +179,20 @@ namespace Iridium
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
         public void Augment(Texture2D surface, double dt = 0)
         {
+            RenderTargetView rtv = new RenderTargetView(Device, surface);
+            ShaderResourceView srv = new ShaderResourceView(Device, surface);
+
             // TODO: this is where the aperture is dynamically generated
             Device.ImmediateContext.CopyResource(surface, aperture.Resource);
 
-            diffraction.Diffract(Device, Pass, spectrum.RT, aperture.SRV);
+            //diffraction.Diffract(Device, Pass, spectrum.RT, aperture.SRV);
+            //diffraction.Diffract(Device, Pass, rtv, aperture.SRV, 1);
+            diffraction.Diffract(Device, Pass, rtv, aperture.SRV, 1 + 1 * (0.5 * Math.Sin(time) + 0.5));
 
             // TODO: this is where the spectrum is convolved with the surface
             //Device.ImmediateContext.CopyResource(spectrum.Resource, surface);
 
-            RenderTargetView rtv = new RenderTargetView(Device, surface);
-            ShaderResourceView srv = new ShaderResourceView(Device, surface);
-
-            convolution.Convolve(Device, Pass, rtv, spectrum.SRV, srv);
+            //convolution.Convolve(Device, Pass, rtv, spectrum.SRV, srv);
 
             rtv.Dispose();
             srv.Dispose();
