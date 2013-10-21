@@ -380,6 +380,7 @@ namespace Insight
         private GraphicsResource rConvolved;
         private GraphicsResource gConvolved;
         private GraphicsResource bConvolved;
+        private GraphicsResource staging;
         private FastFourierTransform fft;
         private Size resolution;
 
@@ -413,18 +414,21 @@ namespace Insight
             rConvolved = new GraphicsResource(device, resolution, Format.R32_Float, true, true);
             gConvolved = new GraphicsResource(device, resolution, Format.R32_Float, true, true);
             bConvolved = new GraphicsResource(device, resolution, Format.R32_Float, true, true);
+            staging    = new GraphicsResource(device, new Size(resolution.Width / 2, resolution.Height / 2), Format.R32G32B32A32_Float, true, true);
         }
 
         public void Convolve(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
         {
-            ConvolveChannel(device, pass, a, b, rConvolved, "x");
-            ConvolveChannel(device, pass, a, b, gConvolved, "y");
-            ConvolveChannel(device, pass, a, b, bConvolved, "z");
+            pass.Pass(device, @"
+            Texture2D<float3> gTex : register(u1);
 
-            pass.Pass(device, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
-            Texture2D<float> rTex : register(t0);
-            Texture2D<float> gTex : register(t1);
-            Texture2D<float> bTex : register(t2);
+            SamplerState texSampler
+            {
+                BorderColor = float4(0, 0, 0, 1);
+                Filter = MIN_MAG_MIP_LINEAR;
+                AddressU = Border;
+                AddressV = Border;
+            };
 
             struct PS_IN
             {
@@ -434,7 +438,37 @@ namespace Insight
 
             float3 main(PS_IN input) : SV_Target
             {
-                uint w, h, m;
+	            return gTex.Sample(texSampler, input.tex);
+            }
+            ", staging.RTV, new[] { b }, null);
+
+            ConvolveChannel(device, pass, a, staging.SRV, rConvolved, "x");
+            ConvolveChannel(device, pass, a, staging.SRV, gConvolved, "y");
+            ConvolveChannel(device, pass, a, staging.SRV, bConvolved, "z");
+
+            pass.Pass(device, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
+            Texture2D<float> rTex : register(t0);
+            Texture2D<float> gTex : register(t1);
+            Texture2D<float> bTex : register(t2);
+            Texture2D<float3> tex : register(t3);
+
+            SamplerState texSampler
+            {
+                BorderColor = float4(0, 0, 0, 1);
+                Filter = MIN_MAG_MIP_LINEAR;
+                AddressU = Border;
+                AddressV = Border;
+            };
+
+            struct PS_IN
+            {
+	            float4 pos : SV_POSITION;
+	            float2 tex :    TEXCOORD;
+            };
+
+            float3 main(PS_IN input) : SV_Target
+            {
+                /*uint w, h, m;
 
                 rTex.GetDimensions(0, w, h, m);
 	            uint x = uint(input.tex.x * w);
@@ -445,14 +479,20 @@ namespace Insight
 
                 float r = rTex.Load(int3(x, y, 0));
                 float g = gTex.Load(int3(x, y, 0));
-                float b = bTex.Load(int3(x, y, 0));
+                float b = bTex.Load(int3(x, y, 0));*/
 
-                return float3(r, g, b);
+                float2 offset = (input.tex + 0.5) / 2;
+
+                float r = rTex.Sample(texSampler, offset);
+                float g = gTex.Sample(texSampler, offset);
+                float b = bTex.Sample(texSampler, offset);
+
+                return float3(r, g, b) + tex.Sample(texSampler, input.tex);
             }
-            ", destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV }, null);
+            ", destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
         }
 
-        private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel)
+        private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel, bool sub)
         {
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
@@ -461,7 +501,40 @@ namespace Insight
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"
+            if (sub)
+            {
+                pass.Pass(device, @"
+            Texture2D<float3>   gTex : register(t0);
+            RWByteAddressBuffer dest : register(u1);
+
+            cbuffer constants : register(b0)
+            {
+                uint w, h;
+            }
+
+            struct PS_IN
+            {
+	            float4 pos : SV_POSITION;
+	            float2 tex :    TEXCOORD;
+            };
+
+            float main(PS_IN input) : SV_Target
+            {
+	            uint x = uint(input.tex.x * w);
+	            uint y = uint(input.tex.y * h);
+                uint index = (y * w + x) << 3U;
+
+                float intensity = gTex.Load(int3(x, y, 0))." + channel + @";
+
+                dest.Store2(index, asuint(float2(intensity, 0)));
+
+                return 0;
+            }
+            ", viewport, null, new[] { source }, new[] { target }, cbuffer);
+            }
+            else
+            {
+                pass.Pass(device, @"
             Texture2D<float3>   gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -488,6 +561,7 @@ namespace Insight
                 return 0;
             }
             ", viewport, null, new[] { source }, new[] { target }, cbuffer);
+            }
 
             cbuffer.Dispose();
         }
@@ -498,8 +572,8 @@ namespace Insight
 
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
-            ZeroPad(device, pass, sourceA, lBuf, channel);
-            ZeroPad(device, pass, sourceB, rBuf, channel);
+            ZeroPad(device, pass, sourceA, lBuf, channel, true);
+            ZeroPad(device, pass, sourceB, rBuf, channel, false);
 
             fft.ForwardTransform(lBuf, tBuf);
             fft.ForwardTransform(rBuf, lBuf);
@@ -618,6 +692,7 @@ namespace Insight
                 rConvolved.Dispose();
                 gConvolved.Dispose();
                 bConvolved.Dispose();
+                staging.Dispose();
                 lBuf.Dispose();
                 rBuf.Dispose();
                 tBuf.Dispose();

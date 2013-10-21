@@ -44,6 +44,8 @@ namespace Sample
         /// </summary>
         private LensFlare lensFlare;
 
+        private GraphicsResource intermediate;
+
         /// <summary>
         /// Timer to measure elapsed time.
         /// </summary>
@@ -84,6 +86,7 @@ namespace Sample
 
             temporary = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
             hdrBuffer = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+            intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
             ldrBuffer = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
 
             lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
@@ -98,7 +101,9 @@ namespace Sample
         {
             RenderScene();
 
-            if ((timer.ElapsedMilliseconds / 1000) % 2 == 0) RenderLensFlares();
+            //if ((timer.ElapsedMilliseconds / 1000) % 2 == 0) RenderLensFlares();
+
+            RenderLensFlares();
 
             Tonemap();
 
@@ -132,12 +137,14 @@ namespace Sample
         /// </summary>
         private void RenderLensFlares()
         {
+            device.ImmediateContext.CopyResource(hdrBuffer.Resource, intermediate.Resource);
+
             double frameTime = (double)timer.ElapsedTicks / (double)Stopwatch.Frequency;
-            lensFlare.Render(hdrBuffer.RTV, hdrBuffer.SRV, frameTime - lastFrameTime);
+            lensFlare.Render(hdrBuffer.RTV, intermediate.SRV, frameTime - lastFrameTime);
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 500;
+        private double exposure = 150;
 
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
@@ -227,7 +234,7 @@ namespace Sample
         /// </summary>
         public void Present()
         {
-            swapChain.Present(1, PresentFlags.None);
+            swapChain.Present(0, PresentFlags.None);
         }
         
         #region IDisposable

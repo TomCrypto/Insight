@@ -24,7 +24,7 @@ The library is currently a work in progress and is **not** ready for use.
 
 ✔ Properly (and efficiently) convolves on Medium settings (used for testing)
 
-✘ Does not support arbitrary input sizes yet (size must the half the convolution dimensions)
+✔ Supports arbitrary input sizes to some extent (not completely pixel-perfect, and not very optimized)
 
 #### Sample
 

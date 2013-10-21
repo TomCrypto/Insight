@@ -8,7 +8,7 @@ namespace Sample
     /// </summary>
     static class Settings
     {
-        private static Size initialResolution = new Size(512, 512);
+        private static Size initialResolution = new Size(600, 600);
         public static Size InitialResolution { get { return initialResolution; } }
     }
 }
