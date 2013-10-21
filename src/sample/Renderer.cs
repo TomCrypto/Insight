@@ -98,7 +98,7 @@ namespace Sample
         {
             RenderScene();
 
-            RenderLensFlares();
+            if ((timer.ElapsedMilliseconds / 1000) % 2 == 0) RenderLensFlares();
 
             Tonemap();
 

@@ -69,7 +69,7 @@ namespace Insight
         public DiffractionEngine(Device device, Size resolution)
         {
             fft = FastFourierTransform.Create2DComplex(device.ImmediateContext, resolution.Width, resolution.Height);
-            fft.ForwardScale = 1.0f / (resolution.Width * resolution.Height);
+            fft.ForwardScale = 1.0f / (float)(resolution.Width * resolution.Height);
             this.resolution = resolution;
 
             FastFourierTransformBufferRequirements bufferReqs = fft.BufferRequirements;
@@ -391,6 +391,7 @@ namespace Insight
         public ConvolutionEngine(Device device, Size resolution)
         {
             fft = FastFourierTransform.Create2DComplex(device.ImmediateContext, resolution.Width, resolution.Height);
+            fft.InverseScale = 1.0f / (float)(resolution.Width * resolution.Height);
             this.resolution = resolution;
 
             FastFourierTransformBufferRequirements bufferReqs = fft.BufferRequirements;
@@ -544,10 +545,6 @@ namespace Insight
             }
             ", viewport, null, null, new[] { tBuf, lBuf }, cbuffer);
 
-            fft.InverseScale = 1.0f / (float)(resolution.Width * resolution.Height);
-
-            fft.InverseTransform(tBuf, lBuf);
-
             cbuffer.Dispose();
 
             cbuffer = new DataStream(8, true, true);
@@ -578,7 +575,7 @@ namespace Insight
                 float2 c = asfloat(buf.Load2(index));
                 return sqrt(pow(c.x, 2) + pow(c.y, 2));
             }
-            ", target.RTV, null, new[] { lBuf }, cbuffer);
+            ", target.RTV, null, new[] { fft.InverseTransform(tBuf) }, cbuffer);
 
             cbuffer.Dispose();
         }

@@ -5,6 +5,33 @@ Insight
 The Insight library aims to bring interactive, high quality, and physically accurate human eye diffraction features to HDR-capable software, such as video games or computer graphics renderers. The library is designed to be unobtrusive yet highly configurable, and takes full advantage of modern graphics hardware. Insight is tuned for use in DirectX 11 applications and is developed in C#, though the code can be readily ported to other languages.
 </p>
 
+Implementation Status
+---------------------
+
+The library is currently a work in progress and is **not** ready for use.
+
+#### Aperture Simulation
+
+✘ No aperture generation capabilities yet (hardcoded static aperture)
+
+#### Diffraction Spectrum
+
+✔ Can generate diffraction spectra from arbitrary apertures (of the right dimension)
+
+✘ No support for different color systems for wavelength -> RGB conversion (only CIE at the moment)
+
+#### FFT Convolution
+
+✔ Properly (and efficiently) convolves on Medium settings (used for testing)
+
+✘ Does not support arbitrary input sizes yet (size must the half the convolution dimensions)
+
+#### Sample
+
+✔ Has a working pipeline and tonemapping algorithm
+
+✘ No 3D example scene currently implemented
+
 Build Instructions
 ------------------
 
