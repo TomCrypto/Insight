@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2012 for Windows Desktop
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Iridium", "reference\Iridium.csproj", "{817762BC-4766-45B4-A974-F9ADE22C8474}"
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Insight", "reference\Insight.csproj", "{817762BC-4766-45B4-A974-F9ADE22C8474}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample", "sample\Sample.csproj", "{CF6D2419-DC56-41F2-BED5-2E85B428A247}"
 EndProject

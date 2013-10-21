@@ -2,9 +2,12 @@
 
 using System.Drawing;
 
+using SharpDX.DXGI;
 using SharpDX.Direct3D11;
+using Device = SharpDX.Direct3D11.Device;
+using Resource = SharpDX.Direct3D11.Resource;
 
-namespace Iridium
+namespace Insight
 {
     /// <summary>
     /// Describes the quality at which diffraction effects are rendered.
@@ -45,7 +48,7 @@ namespace Iridium
     /// <summary>
     /// Provides configurable eye diffraction effects.
     /// </summary>
-    public sealed class Iridium : IDisposable
+    public sealed class LensFlare : IDisposable
     {
         private OpticalProfile profile;
         private RenderQuality quality;
@@ -59,7 +62,7 @@ namespace Iridium
         private ConvolutionEngine convolution;
 
         /// <summary>
-        /// The graphics device used by this Iridium instance.
+        /// The graphics device used by this LensFlare instance.
         /// </summary>
         public Device Device { get; private set; }
 
@@ -91,48 +94,13 @@ namespace Iridium
                 if (diffraction != null) diffraction.Dispose();
                 if (convolution != null) convolution.Dispose();
 
-                switch (quality = value)
-                {
-                    case RenderQuality.Low:
-                        {
-                            diffraction = new DiffractionEngine(Device, new Size(600, 600));
-                            convolution = new ConvolutionEngine(Device, new Size(1024, 1024));
+                diffraction = new DiffractionEngine(Device, DiffractionSize(value));
+                convolution = new ConvolutionEngine(Device, ConvolutionSize(value));
 
-                            aperture = new GraphicsResource(Device, new Size(600, 600), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true, true);
-                            spectrum = new GraphicsResource(Device, new Size(600, 600), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true, true);
+                aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
+                spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
 
-                            break;
-                        }
-                    case RenderQuality.Medium:
-                        {
-                            diffraction = new DiffractionEngine(Device, new Size(512, 512));
-                            // convolution = ...
-                            aperture = new GraphicsResource(Device, new Size(512, 512), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-                            spectrum = new GraphicsResource(Device, new Size(512, 512), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-
-                            break;
-                        }
-                    case RenderQuality.High:
-                        {
-                            diffraction = new DiffractionEngine(Device, new Size(1024, 1024));
-                            // convolution = ...
-
-                            aperture = new GraphicsResource(Device, new Size(1024, 1024), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-                            spectrum = new GraphicsResource(Device, new Size(1024, 1024), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-
-                            break;
-                        }
-                    case RenderQuality.Optimal:
-                        {
-                            diffraction = new DiffractionEngine(Device, new Size(2048, 2048));
-                            // convolution = ...
-
-                            aperture = new GraphicsResource(Device, new Size(2048, 2048), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-                            spectrum = new GraphicsResource(Device, new Size(2048, 2048), SharpDX.DXGI.Format.R32G32B32A32_Float, true, true);
-
-                            break;
-                        }
-                }
+                quality = value;
             }
         }
 
@@ -148,20 +116,39 @@ namespace Iridium
 
             set
             {
-                if (value != null) dimensions = value;
-                else throw new ArgumentNullException("The surface dimensions cannot be null.");
+                if (value == null) throw new ArgumentNullException("The surface dimensions cannot be null.");
+
+                dimensions = value;
             }
         }
 
+        private Size DiffractionSize(RenderQuality quality)
+        {
+            switch (quality)
+            {
+                case RenderQuality.Low:             return new Size( 256,  256);
+                case RenderQuality.Medium:          return new Size( 512,  512);
+                case RenderQuality.High:            return new Size(1024, 1024);
+                case RenderQuality.Optimal:         return new Size(2048, 2048);
+                default: throw new ArgumentException("Unknown render quality.");
+            }
+        }
+
+        private Size ConvolutionSize(RenderQuality quality)
+        {
+            return new Size(DiffractionSize(quality).Width * 2,
+                            DiffractionSize(quality).Height * 2);
+        }
+
         /// <summary>
-        /// Creates an Iridium instance with custom settings. The graphics device
+        /// Creates a LensFlare instance with custom settings. The graphics device
         /// will be reused, but will not be disposed of at instance destruction.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
         /// <param name="dimensions">The target surface dimensions.</param>
         /// <param name="quality">The required render quality.</param>
         /// <param name="profile">The desired optical profile.</param>
-        public Iridium(Device device, Size dimensions, RenderQuality quality, OpticalProfile profile)
+        public LensFlare(Device device, Size dimensions, RenderQuality quality, OpticalProfile profile)
         {
             Device = device;            /* Store the device. */
             Quality = quality;          /* Validate quality. */
@@ -169,6 +156,36 @@ namespace Iridium
             Dimensions = dimensions;    /* Check dimensions. */
 
             Pass = new SurfacePass(device);
+
+            // by default, just load the aperture from a default image (change this later)
+            Resource defaultAperture = Texture2D.FromFile(device, "C:\\aperture.png");
+            ShaderResourceView view = new ShaderResourceView(device, defaultAperture);
+
+            Pass.Pass(device, @"
+            texture2D source                : register(t0);
+
+            SamplerState texSampler
+            {
+                BorderColor = float4(0, 0, 0, 1);
+                Filter = MIN_MAG_MIP_LINEAR;
+                AddressU = Border;
+                AddressV = Border;
+            };
+
+            struct PS_IN
+            {
+	            float4 pos : SV_POSITION;
+	            float2 tex :    TEXCOORD;
+            };
+
+            float4 main(PS_IN input) : SV_Target
+            {
+                return float4(source.Sample(texSampler, input.tex).xyz, 1);
+            }
+            ", aperture.RTV, new[] { view }, null);
+
+            view.Dispose();
+            defaultAperture.Dispose();
         }
 
         /// <summary>
@@ -177,25 +194,13 @@ namespace Iridium
         /// </summary>
         /// <param name="surface">The source and destination texture.</param>
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
-        public void Augment(Texture2D surface, double dt = 0)
+        public void Render(RenderTargetView target, ShaderResourceView surface, double dt = 0)
         {
-            RenderTargetView rtv = new RenderTargetView(Device, surface);
-            ShaderResourceView srv = new ShaderResourceView(Device, surface);
+            // TODO here generate aperture
 
-            // TODO: this is where the aperture is dynamically generated
-            Device.ImmediateContext.CopyResource(surface, aperture.Resource);
+            diffraction.Diffract(Device, Pass, spectrum.RTV, aperture.SRV, 1 + 1 * (0.5 * Math.Sin(time) + 0.5));
 
-            //diffraction.Diffract(Device, Pass, spectrum.RT, aperture.SRV);
-            //diffraction.Diffract(Device, Pass, rtv, aperture.SRV, 1);
-            diffraction.Diffract(Device, Pass, rtv, aperture.SRV, 1 + 1 * (0.5 * Math.Sin(time) + 0.5));
-
-            // TODO: this is where the spectrum is convolved with the surface
-            //Device.ImmediateContext.CopyResource(spectrum.Resource, surface);
-
-            //convolution.Convolve(Device, Pass, rtv, spectrum.SRV, srv);
-
-            rtv.Dispose();
-            srv.Dispose();
+            convolution.Convolve(Device, Pass, target, spectrum.SRV, surface);
 
             time += dt;
         }
@@ -203,9 +208,9 @@ namespace Iridium
         #region IDisposable
 
         /// <summary>
-        /// Destroys this Iridium instance.
+        /// Destroys this LensFlare instance.
         /// </summary>
-        ~Iridium()
+        ~LensFlare()
         {
             Dispose(false);
         }
@@ -223,11 +228,15 @@ namespace Iridium
         {
             if (disposing)
             {
+                Console.WriteLine("Disposing convolution");
                 convolution.Dispose();
+                Console.WriteLine("Disposing diffraction");
                 diffraction.Dispose();
 
                 aperture.Dispose();
                 spectrum.Dispose();
+
+                Pass.Dispose();
             }
         }
 

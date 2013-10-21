@@ -7,7 +7,7 @@ using SharpDX.Direct3D11;
 using SharpDX.D3DCompiler;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
-namespace Iridium
+namespace Insight
 {
     /// <summary>
     /// This class helps execute full-screen pixel shader

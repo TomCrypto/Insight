@@ -9,7 +9,7 @@ using SharpDX.D3DCompiler;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
-namespace Iridium
+namespace Insight
 {
     /// <summary>
     /// Provides utility methods for the FFT classes.
@@ -99,8 +99,8 @@ namespace Iridium
         /// <param name="pass">A SurfacePass instance.</param>
         /// <param name="destination">The destination render target view.</param>
         /// <param name="source">The source texture, can be the same resource as the render target.</param>
-        /// <param name="fNumber">The f-number at which to evaluate the aperture transmission function.</param>
-        public void Diffract(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView source, double fNumber)
+        /// <param name="zDistance">The distance at which to evaluate the aperture transmission function.</param>
+        public void Diffract(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView source, double zDistance)
         {
             if (source.Description.Dimension != ShaderResourceViewDimension.Texture2D)
                 throw new ArgumentException("Source SRV must point to a Texture2D resource of suitable dimensions.");
@@ -141,7 +141,7 @@ namespace Iridium
                 /* Dummy render output. */
 	            return float4(1, 1, 1, 1);
             }
-            ", transform.RT, new[] { source }, new[] { buffer }, null);
+            ", transform.RTV, new[] { source }, new[] { buffer }, null);
 
             DataStream cbuffer = new DataStream(8, true, true);
             cbuffer.Write<uint>((uint)resolution.Width);
@@ -172,12 +172,12 @@ namespace Iridium
                 float p = pow(value.x, 2) + pow(value.y, 2);
 	            return float4(p, 0, 0, 1);
             }
-            ", transform.RT, null, new[] { fft.ForwardTransform(buffer) }, cbuffer);
+            ", transform.RTV, null, new[] { fft.ForwardTransform(buffer) }, cbuffer);
 
             cbuffer.Dispose();
 
             cbuffer = new DataStream(4, true, true);
-            cbuffer.Write<float>((float)fNumber);
+            cbuffer.Write<float>((float)zDistance);
             cbuffer.Position = 0;
 
             pass.Pass(device, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
@@ -193,7 +193,7 @@ namespace Iridium
 
             cbuffer constants : register(b0)
             {
-                float f; // aperture f-number
+                float z; // observation plane distance
             }
 
             struct PS_IN
@@ -295,14 +295,14 @@ namespace Iridium
 
                 for (uint t = 0; t < SPECTRAL_SAMPLES; ++t)
                 {
-                    float scalingFactor = MAX_WAVELENGTH / (f * colors[t].w);
+                    float scalingFactor = MAX_WAVELENGTH / (z * colors[t].w);
                     float2 coords = (input.tex - 0.5f) * scalingFactor + 0.5f;
-                    color += colors[t].xyz * transform.Sample(texSampler, coords).x;
+                    color += colors[t].xyz * transform.Sample(texSampler, coords).x; // add scaling factor here??
                 }
 
                 return float4(color / SPECTRAL_SAMPLES, 1);
             }
-            ", spectrum.RT, new[] { transform.SRV }, cbuffer);
+            ", spectrum.RTV, new[] { transform.SRV }, cbuffer);
 
             spectrum.Resource.FilterTexture(device.ImmediateContext, 0, FilterFlags.Triangle);
 
@@ -435,15 +435,6 @@ namespace Iridium
 
         public void Convolve(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
         {
-            int aW = a.ResourceAs<Texture2D>().Description.Width;
-            int aH = a.ResourceAs<Texture2D>().Description.Height;
-            int bW = b.ResourceAs<Texture2D>().Description.Width;
-            int bH = b.ResourceAs<Texture2D>().Description.Height;
-
-            // figure out by how much to upsample/downsample to meet the convolution dimensions
-            float xScale = (float)(aW + bW - 1) / (float)resolution.Width;
-            float yScale = (float)(aH + bH - 1) / (float)resolution.Height;
-
             ConvolveChannel(device, pass, a, b, rConvolved, "x");
             ConvolveChannel(device, pass, a, b, gConvolved, "y");
             ConvolveChannel(device, pass, a, b, bConvolved, "z");
@@ -452,7 +443,6 @@ namespace Iridium
             texture2D rTex             : register(t0);
             texture2D gTex             : register(t1);
             texture2D bTex             : register(t2);
-            texture2D tmp             : register(t3);
 
             SamplerState texSampler
             {
@@ -470,41 +460,20 @@ namespace Iridium
 
             float4 main(PS_IN input) : SV_Target
             {
-                /********************/
-
-                /*float u = input.tex.x * 2 - 1;
-                float v = input.tex.y * 2 - 1;
-
-                u /= 2;
-                v /= 2;
-
-                u = (u + 1) * 0.5f;
-                v = (v + 1) * 0.5f;
-
-                input.tex = float2(u, v);*/
-
-                /********************/
+                /* Only copy back the central image. */
+                input.tex = (input.tex * 0.5f + 0.25f);
 
                 float r = rTex.Sample(texSampler, input.tex).x;
                 float g = gTex.Sample(texSampler, input.tex).x;
                 float b = bTex.Sample(texSampler, input.tex).x;
 
-                float3 w = tmp.Sample(texSampler, input.tex).xyz;
-
-	            return float4(r, g, b, 1) - float4(w, 0);
+                return float4(r, g, b, 1);
             }
-            ", destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
+            ", destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV }, null);
         }
 
-        private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, RenderTargetView target, String channel, float scaleX, float scaleY)
+        private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, RenderTargetView target, String channel)
         {
-            DataStream cbuffer = new DataStream(16, true, true);
-            cbuffer.Write<uint>((uint)resolution.Width);
-            cbuffer.Write<uint>((uint)resolution.Height);
-            cbuffer.Write<float>(scaleX);
-            cbuffer.Write<float>(scaleY);
-            cbuffer.Position = 0;
-
             pass.Pass(device, @"
             texture2D source                : register(t0);
 
@@ -516,12 +485,6 @@ namespace Iridium
                 AddressV = Border;
             };
 
-            cbuffer constants : register(b0)
-            {
-                uint totalW, totalH;
-                float x_scale, y_scale;
-            }
-
             struct PS_IN
             {
 	            float4 pos : SV_POSITION;
@@ -530,47 +493,21 @@ namespace Iridium
 
             float4 main(PS_IN input) : SV_Target
             {
-                uint w, h, m;
-
-                source.GetDimensions(0, w, h, m);
-	            uint x = uint(input.tex.x * x_scale * totalW);
-	            uint y = uint(input.tex.y * y_scale * totalH);
-
-                if ((x >= w) || (y >= h)) return float4(0, 0, 0, 1);
-                else return float4(source.Load(int3(x, y, 0))." + channel + @", 0, 0, 1);
+                return float4(source.Sample(texSampler, input.tex * 2)." + channel + @", 0, 0, 1);
             }
-            ", target, new[] { source }, cbuffer);
-
-            cbuffer.Dispose();
+            ", target, new[] { source }, null);
         }
 
         private void ConvolveChannel(Device device, SurfacePass pass, ShaderResourceView a, ShaderResourceView b, GraphicsResource target, String channel)
         {
             if ((channel != "x") && (channel != "y") && (channel != "z")) throw new ArgumentException("Invalid RGB channel specified.");
 
-            int aW = a.ResourceAs<Texture2D>().Description.Width;
-            int aH = a.ResourceAs<Texture2D>().Description.Height;
-            int bW = b.ResourceAs<Texture2D>().Description.Width;
-            int bH = b.ResourceAs<Texture2D>().Description.Height;
-
-            // figure out by how much to upsample/downsample to meet the convolution dimensions
-            float xScale = (float)(aW + bW - 1) / (float)resolution.Width;
-            float yScale = (float)(aH + bH - 1) / (float)resolution.Height;
-
-            ZeroPad(device, pass, a, staging.RT, channel, xScale, yScale);
+            ZeroPad(device, pass, a, staging.RTV, channel);
 
             pass.Pass(device, @"                                                                                       /* 1. Transcode texture A into L FFT buffer. */
             texture2D source                : register(t0);
             RWByteAddressBuffer destination : register(u1);
 
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
-
             struct PS_IN
             {
 	            float4 pos : SV_POSITION;
@@ -586,28 +523,20 @@ namespace Iridium
 	            uint y = uint(input.tex.y * h);
                 uint index = 8 * (y * w + x);
 
-                float2 value = float2(source.Sample(texSampler, input.tex).x, 0);
+                float2 value = float2(source.Load(int3(x, y, 0)).x, 0);
                 destination.Store2(index, asuint(value));
 
                 /* Dummy render output. */
 	            return float4(1, 1, 1, 1);
             }
-            ", target.RT, new[] { staging.SRV }, new[] { lBuf }, null);
+            ", target.RTV, new[] { staging.SRV }, new[] { lBuf }, null);
 
-            ZeroPad(device, pass, b, staging.RT, channel, xScale, yScale);
+            ZeroPad(device, pass, b, staging.RTV, channel);
 
             pass.Pass(device, @"                                                                                       /* 2. Transcode texture B into R FFT buffer. */
             texture2D source                : register(t0);
             RWByteAddressBuffer destination : register(u1);
 
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
-
             struct PS_IN
             {
 	            float4 pos : SV_POSITION;
@@ -623,13 +552,13 @@ namespace Iridium
 	            uint y = uint(input.tex.y * h);
                 uint index = 8 * (y * w + x);
 
-                float2 value = float2(source.Sample(texSampler, input.tex).x, 0);
+                float2 value = float2(source.Load(int3(x, y, 0)).x, 0);
                 destination.Store2(index, asuint(value));
 
                 /* Dummy render output. */
 	            return float4(1, 1, 1, 1);
             }
-            ", target.RT, new[] { staging.SRV }, new[] { rBuf }, null);
+            ", target.RTV, new[] { staging.SRV }, new[] { rBuf }, null);
 
             fft.ForwardTransform(lBuf, tBuf);
             fft.ForwardTransform(rBuf, lBuf);
@@ -656,12 +585,8 @@ namespace Iridium
 
             float2 complex_mul(float2 a, float2 b)
             {
-	            float2 r;
-
-	            r.x = a.x * b.x - a.y * b.y;
-	            r.y = a.y * b.x + a.x * b.y;
-
-	            return r;
+                return float2(a.x * b.x - a.y * b.y,
+                              a.y * b.x + a.x * b.y);
             }
 
             float4 main(PS_IN input) : SV_Target
@@ -678,7 +603,9 @@ namespace Iridium
                 /* Dummy render output. */
 	            return float4(1, 1, 1, 1);
             }
-            ", target.RT, null, new[] { tBuf, lBuf }, cbuffer);
+            ", target.RTV, null, new[] { tBuf, lBuf }, cbuffer);
+
+            fft.InverseScale = 1.0f / (float)(resolution.Width * resolution.Height);
 
             fft.InverseTransform(tBuf, lBuf);
 
@@ -690,15 +617,6 @@ namespace Iridium
 
             pass.Pass(device, @"                                                                                       /* 4. Transcode IFFT(FFT(A) × FFT(B)) - B to texture. */
             RWByteAddressBuffer buf : register(u1);
-            texture2D source        : register(t0);
-
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
 
             cbuffer constants : register(b0)
             {
@@ -720,7 +638,7 @@ namespace Iridium
                 float2 c = asfloat(buf.Load2(index));
                 return float4(sqrt(pow(c.x, 2) + pow(c.y, 2)), 0, 0, 1);
             }
-            ", target.RT, null, new[] { lBuf }, cbuffer);
+            ", target.RTV, null, new[] { lBuf }, cbuffer);
 
             cbuffer.Dispose();
         }
@@ -760,6 +678,7 @@ namespace Iridium
                     view.Dispose();
                 }
 
+                Console.WriteLine("Disposed FFT");
                 rConvolved.Dispose();
                 gConvolved.Dispose();
                 bConvolved.Dispose();

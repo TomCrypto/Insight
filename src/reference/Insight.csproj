@@ -7,8 +7,8 @@
     <ProjectGuid>{817762BC-4766-45B4-A974-F9ADE22C8474}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Iridium</RootNamespace>
-    <AssemblyName>Iridium</AssemblyName>
+    <RootNamespace>Insight</RootNamespace>
+    <AssemblyName>Insight</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -23,8 +23,9 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Debug\Iridium.xml</DocumentationFile>
+    <DocumentationFile>bin\Debug\Insight.xml</DocumentationFile>
     <UseVSHostingProcess>true</UseVSHostingProcess>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -34,7 +35,7 @@
     </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Release\Iridium.xml</DocumentationFile>
+    <DocumentationFile>bin\Release\Insight.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="SharpDX, Version=2.5.0.0, Culture=neutral, PublicKeyToken=627a3d6d1956f55a, processorArchitecture=MSIL">
@@ -65,12 +66,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FFT.cs" />
-    <Compile Include="FourierTransform.cs" />
-    <Compile Include="Fraunhofer.cs" />
-    <Compile Include="Iridium.cs" />
+    <Compile Include="LensFlare.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SurfacePass.cs" />
-    <Compile Include="Utilities.cs" />
+    <Compile Include="GraphicsResource.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
