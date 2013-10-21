@@ -15,10 +15,11 @@ namespace Sample
         static void Main()
         {
             RenderForm window = new RenderForm("Insight Library Sample");
-            //window.StartPosition = FormStartPosition.CenterScreen;
+            //window.StartPosition   = FormStartPosition.CenterScreen;
             window.FormBorderStyle = FormBorderStyle.FixedDialog;
-            window.ClientSize = Settings.InitialResolution;
-            window.Icon = Resources.ProgramIcon;
+            window.ClientSize      = Settings.InitialResolution;
+            window.Icon            = Resources.ProgramIcon;
+            window.MaximizeBox     = false;
 
             using (Renderer renderer = new Renderer(window))
             {

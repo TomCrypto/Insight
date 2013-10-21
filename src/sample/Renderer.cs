@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Drawing;
+using System.Diagnostics;
 
 using SharpDX;
+using SharpDX.DXGI;
 using SharpDX.Windows;
 using SharpDX.Direct3D11;
-using SharpDX.DXGI;
 using Device = SharpDX.Direct3D11.Device;
 
 using Insight;
@@ -13,23 +14,57 @@ namespace Sample
 {
     class Renderer : IDisposable
     {
+        /// <summary>
+        /// Graphics device currently in use.
+        /// </summary>
         private Device device;
 
+        /// <summary>
+        /// Main swapchain for the rendering.
+        /// </summary>
         private SwapChain swapChain;
 
-        private GraphicsResource hdrTarget, temporary, output;
+        /// <summary>
+        /// A temporary texture buffer, for tonemapping.
+        /// </summary>
+        private GraphicsResource temporary;
 
-        private Texture2D backBuffer;
+        /// <summary>
+        /// High dynamic range buffer to render the scene.
+        /// </summary>
+        private GraphicsResource hdrBuffer;
 
-        private RenderTargetView renderTarget;
+        /// <summary>
+        /// Low-depth buffer for the swapchain.
+        /// </summary>
+        private GraphicsResource ldrBuffer;
 
+        /// <summary>
+        /// The LensFlare instance from the library.
+        /// </summary>
         private LensFlare lensFlare;
+
+        /// <summary>
+        /// Timer to measure elapsed time.
+        /// </summary>
+        private Stopwatch timer = new Stopwatch();
+
+        /// <summary>
+        /// Frame time (in seconds) of the last frame.
+        /// </summary>
+        private double lastFrameTime;
 
         public Renderer(RenderForm window)
         {
-            Device.CreateWithSwapChain(SharpDX.Direct3D.DriverType.Hardware, DeviceCreationFlags.Debug, new SwapChainDescription()
+            #if DEBUG
+            var flags = DeviceCreationFlags.Debug;
+            #else
+            var flags = DeviceCreationFlags.None;
+            #endif
+
+            Device.CreateWithSwapChain(SharpDX.Direct3D.DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 1,
+                BufferCount = 2,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -47,20 +82,34 @@ namespace Sample
                 }
             }, out device, out swapChain);
 
-            hdrTarget = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
             temporary = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
-            backBuffer = swapChain.GetBackBuffer<Texture2D>(0);
-            renderTarget = new RenderTargetView(device, backBuffer);
+            hdrBuffer = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+            ldrBuffer = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
 
-            output = new GraphicsResource(device, window.ClientSize, backBuffer.Description.Format, true, false);
+            lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
 
-            lensFlare = new LensFlare(device, window.ClientSize, RenderQuality.Medium, new OpticalProfile());
+            timer.Start();
         }
 
+        /// <summary>
+        /// Renders the scene to the backbuffer.
+        /// </summary>
         public void Render()
         {
-            // render here into hdrTarget
+            RenderScene();
 
+            RenderLensFlares();
+
+            Tonemap();
+
+            Present();
+        }
+
+        /// <summary>
+        /// Renders the demonstration scene.
+        /// </summary>
+        private void RenderScene()
+        {
             lensFlare.Pass.Pass(device, @"
             struct PS_IN
             {
@@ -72,26 +121,29 @@ namespace Sample
             {
                 input.tex = (input.tex - 0.5f) * 2;
 
-                if (pow(input.tex.x, 2) + pow(input.tex.y, 4) < pow(0.05f, 2)) return float4(1, 1, 1, 1);
+                if (pow(input.tex.x, 2) + pow(input.tex.y, 2) < pow(0.05f, 2)) return float4(1, 1, 1, 1);
                 else return float4(0, 0, 0, 1);
             }
-            ", hdrTarget.RTV, null, null);
-
-            // flares here
-
-            lensFlare.Render(hdrTarget.RTV, hdrTarget.SRV, 1.0 / 60.0);
-
-
-            // tonemap here
-
-            Tonemap(hdrTarget, output, temporary, 100);
-
-            device.ImmediateContext.CopyResource(output.Resource, backBuffer);
-
-            swapChain.Present(0, PresentFlags.None);
+            ", hdrBuffer.RTV, null, null);
         }
 
-        private void Tonemap(GraphicsResource source, GraphicsResource destination, GraphicsResource temporary, double exposure)
+        /// <summary>
+        /// Adds lens flare effects to the hdrBuffer.
+        /// </summary>
+        private void RenderLensFlares()
+        {
+            double frameTime = (double)timer.ElapsedTicks / (double)Stopwatch.Frequency;
+            lensFlare.Render(hdrBuffer.RTV, hdrBuffer.SRV, frameTime - lastFrameTime);
+            lastFrameTime = frameTime;
+        }
+
+        private double exposure = 450;
+
+        /// <summary>
+        /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
+        /// a temporary texture for staging, using the Reinhard operator.
+        /// </summary>
+        private void Tonemap()
         {
             lensFlare.Pass.Pass(device, @"
             texture2D source             : register(t0);
@@ -119,7 +171,7 @@ namespace Sample
 
                 return float4(rgb, log(luminance(rgb) + 1e-5f));
             }
-            ", temporary.RTV, new[] { source.SRV }, null);
+            ", temporary.RTV, new[] { hdrBuffer.SRV }, null);
 
             device.ImmediateContext.GenerateMips(temporary.SRV);
 
@@ -165,9 +217,17 @@ namespace Sample
 
                 return float4(rgb, 1);
             }
-            ", destination.RTV, new[] { temporary.SRV }, cbuffer);
+            ", ldrBuffer.RTV, new[] { temporary.SRV }, cbuffer);
 
             cbuffer.Dispose();
+        }
+
+        /// <summary>
+        /// Presents the ldrBuffer to the display.
+        /// </summary>
+        public void Present()
+        {
+            swapChain.Present(0, PresentFlags.None);
         }
         
         #region IDisposable
@@ -193,14 +253,13 @@ namespace Sample
         {
             if (disposing)
             {
-                renderTarget.Dispose();
-                backBuffer.Dispose();
-                hdrTarget.Dispose();
+                ldrBuffer.Dispose();
+                hdrBuffer.Dispose();
                 temporary.Dispose();
-                output.Dispose();
                 lensFlare.Dispose();
                 swapChain.Dispose();
                 device.Dispose();
+                timer.Stop();
             }
         }
 

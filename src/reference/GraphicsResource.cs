@@ -20,6 +20,11 @@ namespace Insight
     /// </summary>
     public class GraphicsResource : IDisposable
     {
+        private static int MipLevels(Size size)
+        {
+            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2));
+        }
+
         /// <summary>
         /// Creates a new graphics resource.
         /// </summary>
@@ -39,7 +44,7 @@ namespace Insight
 
             BindFlags bindFlags = (renderTargetView ? BindFlags.RenderTarget : 0) | (shaderResourceView ? BindFlags.ShaderResource : 0);
             ResourceOptionFlags optionFlags = (hasMipMaps ? ResourceOptionFlags.GenerateMipMaps : 0);
-            int mipLevels = (hasMipMaps ? GraphicsUtils.MipLevels(dimensions) : 1);
+            int mipLevels = (hasMipMaps ? MipLevels(dimensions) : 1);
 
             Resource = new Texture2D(device, new Texture2DDescription()
             {
@@ -74,11 +79,6 @@ namespace Insight
         }
 
         /// <summary>
-        /// The device associated with this graphics resource.
-        /// </summary>
-        public Device Device { get { return Resource.Device; } }
-
-        /// <summary>
         /// The underlying resource (as a 2D texture).
         /// </summary>
         public Texture2D Resource { get; private set; }
@@ -100,7 +100,8 @@ namespace Insight
         {
             get
             {
-                return GraphicsUtils.TextureSize(Resource);
+                return new Size(Resource.Description.Width,
+                                Resource.Description.Height);
             }
         }
 
@@ -111,7 +112,18 @@ namespace Insight
         {
             get
             {
-                return GraphicsUtils.TextureFormat(Resource);
+                return Resource.Description.Format;
+            }
+        }
+
+        /// <summary>
+        /// The device associated with this graphics resource.
+        /// </summary>
+        public Device Device
+        {
+            get
+            {
+                return Resource.Device;
             }
         }
 
@@ -145,24 +157,5 @@ namespace Insight
         }
 
         #endregion
-    }
-
-    public static class GraphicsUtils
-    {
-        public static Size TextureSize(Resource resource)
-        {
-            return new Size(resource.QueryInterface<Texture2D>().Description.Width,
-                            resource.QueryInterface<Texture2D>().Description.Height);
-        }
-
-        public static Format TextureFormat(Resource resource)
-        {
-            return resource.QueryInterface<Texture2D>().Description.Format;
-        }
-
-        public static int MipLevels(Size size)
-        {
-            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2));
-        }
     }
 }

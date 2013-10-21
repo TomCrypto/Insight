@@ -440,17 +440,9 @@ namespace Insight
             ConvolveChannel(device, pass, a, b, bConvolved, "z");
 
             pass.Pass(device, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
-            texture2D rTex             : register(t0);
-            texture2D gTex             : register(t1);
-            texture2D bTex             : register(t2);
-
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
+            Texture2D<float> rTex : register(t0);
+            Texture2D<float> gTex : register(t1);
+            Texture2D<float> bTex : register(t2);
 
             struct PS_IN
             {
@@ -460,12 +452,18 @@ namespace Insight
 
             float4 main(PS_IN input) : SV_Target
             {
-                /* Only copy back the central image. */
-                input.tex = (input.tex * 0.5f + 0.25f);
+                uint w, h, m;
 
-                float r = rTex.Sample(texSampler, input.tex).x;
-                float g = gTex.Sample(texSampler, input.tex).x;
-                float b = bTex.Sample(texSampler, input.tex).x;
+                rTex.GetDimensions(0, w, h, m);
+	            uint x = uint(input.tex.x * w);
+	            uint y = uint(input.tex.y * h);
+
+                x = (x + 512) % 1024;
+                y = (y + 512) % 1024;
+
+                float r = rTex.Load(int3(x, y, 0));
+                float g = gTex.Load(int3(x, y, 0));
+                float b = bTex.Load(int3(x, y, 0));
 
                 return float4(r, g, b, 1);
             }
@@ -475,15 +473,7 @@ namespace Insight
         private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, RenderTargetView target, String channel)
         {
             pass.Pass(device, @"
-            texture2D source                : register(t0);
-
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
+            Texture2D<float3> gTex : register(t0);
 
             struct PS_IN
             {
@@ -491,9 +481,15 @@ namespace Insight
 	            float2 tex :    TEXCOORD;
             };
 
-            float4 main(PS_IN input) : SV_Target
+            float main(PS_IN input) : SV_Target
             {
-                return float4(source.Sample(texSampler, input.tex * 2)." + channel + @", 0, 0, 1);
+                uint w, h, m;
+
+                gTex.GetDimensions(0, w, h, m);
+	            uint x = uint(input.tex.x * w);
+	            uint y = uint(input.tex.y * h);
+
+                return gTex.Load(int3(x, y, 0))." + channel + @";
             }
             ", target, new[] { source }, null);
         }
@@ -502,11 +498,13 @@ namespace Insight
         {
             if ((channel != "x") && (channel != "y") && (channel != "z")) throw new ArgumentException("Invalid RGB channel specified.");
 
+            ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
+
             ZeroPad(device, pass, a, staging.RTV, channel);
 
             pass.Pass(device, @"                                                                                       /* 1. Transcode texture A into L FFT buffer. */
-            texture2D source                : register(t0);
-            RWByteAddressBuffer destination : register(u1);
+            Texture2D<float>    gTex : register(t0);
+            RWByteAddressBuffer dest : register(u1);
 
             struct PS_IN
             {
@@ -514,28 +512,27 @@ namespace Insight
 	            float2 tex :    TEXCOORD;
             };
 
-            float4 main(PS_IN input) : SV_Target
+            float main(PS_IN input) : SV_Target
             {
                 uint w, h, m;
 
-                source.GetDimensions(0, w, h, m);
+                gTex.GetDimensions(0, w, h, m);
 	            uint x = uint(input.tex.x * w);
 	            uint y = uint(input.tex.y * h);
-                uint index = 8 * (y * w + x);
+                uint index = (y * w + x) << 3U;
 
-                float2 value = float2(source.Load(int3(x, y, 0)).x, 0);
-                destination.Store2(index, asuint(value));
+                float intensity = gTex.Load(int3(x, y, 0));
+                dest.Store2(index, asuint(float2(intensity, 0)));
 
-                /* Dummy render output. */
-	            return float4(1, 1, 1, 1);
+                return 0;
             }
-            ", target.RTV, new[] { staging.SRV }, new[] { lBuf }, null);
+            ", viewport, null, new[] { staging.SRV }, new[] { lBuf }, null);
 
             ZeroPad(device, pass, b, staging.RTV, channel);
 
             pass.Pass(device, @"                                                                                       /* 2. Transcode texture B into R FFT buffer. */
-            texture2D source                : register(t0);
-            RWByteAddressBuffer destination : register(u1);
+            Texture2D<float>    gTex : register(t0);
+            RWByteAddressBuffer dest : register(u1);
 
             struct PS_IN
             {
@@ -543,22 +540,21 @@ namespace Insight
 	            float2 tex :    TEXCOORD;
             };
 
-            float4 main(PS_IN input) : SV_Target
+            float main(PS_IN input) : SV_Target
             {
                 uint w, h, m;
 
-                source.GetDimensions(0, w, h, m);
+                gTex.GetDimensions(0, w, h, m);
 	            uint x = uint(input.tex.x * w);
 	            uint y = uint(input.tex.y * h);
-                uint index = 8 * (y * w + x);
+                uint index = (y * w + x) << 3U;
 
-                float2 value = float2(source.Load(int3(x, y, 0)).x, 0);
-                destination.Store2(index, asuint(value));
+                float intensity = gTex.Load(int3(x, y, 0));
+                dest.Store2(index, asuint(float2(intensity, 0)));
 
-                /* Dummy render output. */
-	            return float4(1, 1, 1, 1);
+                return 0;
             }
-            ", target.RTV, new[] { staging.SRV }, new[] { rBuf }, null);
+            ", viewport, null, new[] { staging.SRV }, new[] { rBuf }, null);
 
             fft.ForwardTransform(lBuf, tBuf);
             fft.ForwardTransform(rBuf, lBuf);
@@ -589,21 +585,20 @@ namespace Insight
                               a.y * b.x + a.x * b.y);
             }
 
-            float4 main(PS_IN input) : SV_Target
+            float main(PS_IN input) : SV_Target
             {
 	            uint x = uint(input.tex.x * w);
 	            uint y = uint(input.tex.y * h);
-                uint index = 8 * (y * w + x);
+                uint index = (y * w + x) << 3U;
 
                 float2 valA = asfloat(bufA.Load2(index));
                 float2 valB = asfloat(bufB.Load2(index));
 
                 bufA.Store2(index, asuint(complex_mul(valA, valB)));
 
-                /* Dummy render output. */
-	            return float4(1, 1, 1, 1);
+                return 0;
             }
-            ", target.RTV, null, new[] { tBuf, lBuf }, cbuffer);
+            ", viewport, null, null, new[] { tBuf, lBuf }, cbuffer);
 
             fft.InverseScale = 1.0f / (float)(resolution.Width * resolution.Height);
 
@@ -615,7 +610,7 @@ namespace Insight
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"                                                                                       /* 4. Transcode IFFT(FFT(A) × FFT(B)) - B to texture. */
+            pass.Pass(device, @"                                                                                       /* 4. Transcode IFFT(FFT(A) × FFT(B)) to texture. */
             RWByteAddressBuffer buf : register(u1);
 
             cbuffer constants : register(b0)
@@ -629,14 +624,14 @@ namespace Insight
 	            float2 tex :    TEXCOORD;
             };
 
-            float4 main(PS_IN input) : SV_Target
+            float main(PS_IN input) : SV_Target
             {
 	            uint x = uint(input.tex.x * w);
 	            uint y = uint(input.tex.y * h);
-                uint index = 8 * (y * w + x);
+                uint index = (y * w + x) << 3U;
 
                 float2 c = asfloat(buf.Load2(index));
-                return float4(sqrt(pow(c.x, 2) + pow(c.y, 2)), 0, 0, 1);
+                return sqrt(pow(c.x, 2) + pow(c.y, 2));
             }
             ", target.RTV, null, new[] { lBuf }, cbuffer);
 
@@ -678,7 +673,6 @@ namespace Insight
                     view.Dispose();
                 }
 
-                Console.WriteLine("Disposed FFT");
                 rConvolved.Dispose();
                 gConvolved.Dispose();
                 bConvolved.Dispose();
