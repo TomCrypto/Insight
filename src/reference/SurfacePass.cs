@@ -67,8 +67,10 @@ namespace Insight
             VS_OUT main(uint id : SV_VertexID)
             {
                 VS_OUT output;
+
                 output.tex = float2((id << 1) & 2, id & 2);
                 output.pos = float4(output.tex * float2(2, -2) + float2(-1, 1), 0, 1);
+
                 return output;
             }";
 

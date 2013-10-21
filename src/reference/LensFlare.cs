@@ -161,9 +161,9 @@ namespace Insight
 	            float2 tex :    TEXCOORD;
             };
 
-            float4 main(PS_IN input) : SV_Target
+            float3 main(PS_IN input) : SV_Target
             {
-                return float4(source.Sample(texSampler, input.tex).xyz, 1);
+                return source.Sample(texSampler, input.tex).xyz;
             }
             ", aperture.RTV, new[] { view }, null);
 

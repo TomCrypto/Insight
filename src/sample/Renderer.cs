@@ -64,7 +64,7 @@ namespace Sample
 
             Device.CreateWithSwapChain(SharpDX.Direct3D.DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 2,
+                BufferCount = 3,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -137,7 +137,7 @@ namespace Sample
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 450;
+        private double exposure = 500;
 
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
@@ -227,7 +227,7 @@ namespace Sample
         /// </summary>
         public void Present()
         {
-            swapChain.Present(0, PresentFlags.None);
+            swapChain.Present(1, PresentFlags.None);
         }
         
         #region IDisposable
