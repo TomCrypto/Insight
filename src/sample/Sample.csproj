@@ -46,6 +46,9 @@
     <Reference Include="SharpDX.Direct3D11">
       <HintPath>..\packages\SharpDX.Direct3D11.2.5.0\lib\net40\SharpDX.Direct3D11.dll</HintPath>
     </Reference>
+    <Reference Include="SharpDX.DirectInput">
+      <HintPath>..\packages\SharpDX.DirectInput.2.5.0\lib\net40\SharpDX.DirectInput.dll</HintPath>
+    </Reference>
     <Reference Include="SharpDX.DXGI">
       <HintPath>..\packages\SharpDX.DXGI.2.5.0\lib\net40\SharpDX.DXGI.dll</HintPath>
     </Reference>
@@ -67,6 +70,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Scene.cs" />
     <Compile Include="Settings.cs" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -84,6 +88,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Shaders\renderPS.fx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Shaders\renderVS.fx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />

@@ -12,6 +12,9 @@ using Insight;
 
 namespace Sample
 {
+    /// <summary>
+    /// The sample renderer pipeline.
+    /// </summary>
     class Renderer : IDisposable
     {
         /// <summary>
@@ -56,6 +59,8 @@ namespace Sample
         /// </summary>
         private double lastFrameTime;
 
+        private Scene scene;
+
         public Renderer(RenderForm window)
         {
             #if DEBUG
@@ -91,6 +96,8 @@ namespace Sample
 
             lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
 
+            scene = new Scene(device, window, window.ClientSize);
+
             timer.Start();
         }
 
@@ -115,7 +122,7 @@ namespace Sample
         /// </summary>
         private void RenderScene()
         {
-            lensFlare.Pass.Pass(device, @"
+            /*lensFlare.Pass.Pass(device, @"
             struct PS_IN
             {
 	            float4 pos : SV_POSITION;
@@ -129,7 +136,9 @@ namespace Sample
                 if (pow(input.tex.x, 2) + pow(input.tex.y, 2) < pow(0.05f, 2)) return float4(1, 1, 1, 1);
                 else return float4(0, 0, 0, 1);
             }
-            ", hdrBuffer.RTV, null, null);
+            ", hdrBuffer.RTV, null, null);*/
+
+            scene.Render(hdrBuffer.RTV);
         }
 
         /// <summary>
@@ -144,7 +153,7 @@ namespace Sample
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 150;
+        private double exposure = 50;
 
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
@@ -234,7 +243,7 @@ namespace Sample
         /// </summary>
         public void Present()
         {
-            swapChain.Present(0, PresentFlags.None);
+            swapChain.Present(1, PresentFlags.None);
         }
         
         #region IDisposable
