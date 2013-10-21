@@ -101,7 +101,7 @@ namespace Insight
                 convolution = new ConvolutionEngine(Device, ConvolutionSize(value));
 
                 aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
-                spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
+                spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
 
                 quality = value;
             }

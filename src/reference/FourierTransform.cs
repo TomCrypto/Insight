@@ -69,6 +69,7 @@ namespace Insight
         public DiffractionEngine(Device device, Size resolution)
         {
             fft = FastFourierTransform.Create2DComplex(device.ImmediateContext, resolution.Width, resolution.Height);
+            fft.ForwardScale = 1.0f / (resolution.Width * resolution.Height);
             this.resolution = resolution;
 
             FastFourierTransformBufferRequirements bufferReqs = fft.BufferRequirements;
@@ -294,10 +295,10 @@ namespace Insight
             }
             ", spectrum.RTV, new[] { transform.SRV }, cbuffer);
 
-            spectrum.Resource.FilterTexture(device.ImmediateContext, 0, FilterFlags.Triangle); // change this later (extremely expensive)
+            device.ImmediateContext.GenerateMips(spectrum.SRV);
 
             pass.Pass(device, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
-            texture2D spectrum : register(t0);
+            Texture2D<float3> spectrum : register(t0);
 
             struct PS_IN
             {
@@ -315,8 +316,8 @@ namespace Insight
                 uint x = uint(input.tex.x * w);
                 uint y = uint(input.tex.y * h);
 
-                float3 norm = spectrum.Load(int3(0, 0, maxMips - 1)).xyz * (w * h);
-                return max(0, spectrum.Load(int3(x, y, 0)).xyz / norm - threshold);
+                float3 norm = spectrum.Load(int3(0, 0, maxMips - 1)) * (w * h);
+                return max(0, spectrum.Load(int3(x, y, 0)) / norm - threshold);
             }
             ", destination, new[] { spectrum.SRV }, null);
         }

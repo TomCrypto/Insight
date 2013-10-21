@@ -22,7 +22,7 @@ namespace Insight
     {
         private static int MipLevels(Size size)
         {
-            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2));
+            return (int)Math.Floor(Math.Log(Math.Max(size.Width, size.Height), 2)) + 1;
         }
 
         /// <summary>
