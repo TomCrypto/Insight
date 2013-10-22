@@ -7,6 +7,7 @@ using SharpDX.DXGI;
 using SharpDX.Windows;
 using SharpDX.Direct3D11;
 using Device = SharpDX.Direct3D11.Device;
+using DriverType = SharpDX.Direct3D.DriverType;
 
 using Insight;
 
@@ -69,7 +70,7 @@ namespace Sample
             var flags = DeviceCreationFlags.None;
             #endif
 
-            Device.CreateWithSwapChain(SharpDX.Direct3D.DriverType.Hardware, flags, new SwapChainDescription()
+            Device.CreateWithSwapChain(DriverType.Hardware, flags, new SwapChainDescription()
             {
                 BufferCount = 3,
                 IsWindowed = true,
@@ -101,16 +102,19 @@ namespace Sample
             timer.Start();
         }
 
+        bool addFlares = true;
+
         /// <summary>
         /// Renders the scene to the backbuffer.
         /// </summary>
         public void Render()
         {
+            if ((scene.isKeyPressed(SharpDX.DirectInput.Key.F))) addFlares = true;
+            if ((scene.isKeyPressed(SharpDX.DirectInput.Key.R))) addFlares = false;
+
             RenderScene();
 
-            //if ((timer.ElapsedMilliseconds / 1000) % 2 == 0) RenderLensFlares();
-
-            RenderLensFlares();
+            if (addFlares) RenderLensFlares();
 
             Tonemap();
 
@@ -122,22 +126,6 @@ namespace Sample
         /// </summary>
         private void RenderScene()
         {
-            /*lensFlare.Pass.Pass(device, @"
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float4 main(PS_IN input) : SV_Target
-            {
-                input.tex = (input.tex - 0.5f) * 2;
-
-                if (pow(input.tex.x, 2) + pow(input.tex.y, 2) < pow(0.05f, 2)) return float4(1, 1, 1, 1);
-                else return float4(0, 0, 0, 1);
-            }
-            ", hdrBuffer.RTV, null, null);*/
-
             scene.Render(hdrBuffer.RTV);
         }
 
@@ -153,7 +141,7 @@ namespace Sample
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 50;
+        private double exposure = 4;
 
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via

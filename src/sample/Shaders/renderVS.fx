@@ -8,21 +8,25 @@ cbuffer stuff
 struct VertexIn
 {
 	float4 pos : POSITION;
-	float4 color: COLOR0;
+	float4 normal: NORMAL0;
+	float4 tex: TEXCOORD0;
 };
 
 struct PixelIn
 {
 	float4 pos : SV_POSITION;
-	float4 color: COLOR0;
+	float4 pos3D:  COLOR0;
+	float4 normal: TEXCOORD1;
+	float4 tex: TEXCOORD0;
 };
 
 PixelIn main(VertexIn input)
 {
    PixelIn output;
-   output.pos = mul(float4(input.pos.xyz, 1), viewproj);
-   //output.pos = input.pos;
-   output.color = input.color;
+   output.pos = mul(input.pos, viewproj);
+   output.pos3D = input.pos;
+   output.normal = input.normal;
+   output.tex = input.tex;
    
    return output;
 }

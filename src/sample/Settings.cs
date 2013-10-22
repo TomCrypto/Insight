@@ -18,7 +18,7 @@ namespace Sample
             public void Close(Stream stream) { stream.Close(); stream.Dispose(); }
             public Stream Open(IncludeType type, string fileName, Stream stream)
             {
-                return new FileStream(Settings.shaderDirectory + fileName, FileMode.Open);
+                return new FileStream(Settings.ShaderDir + fileName, FileMode.Open);
             }
 
             public void Dispose()
@@ -32,22 +32,29 @@ namespace Sample
         /// <summary> An include handler for shaders. </summary>
         public static IncludeFX includeFX = new IncludeFX();
 
-        private static Size initialResolution = new Size(600, 600);
+        private static Size initialResolution = new Size(800, 600);
         public static Size InitialResolution { get { return initialResolution; } }
 
         /// <summary> The far plane. </summary>
-        static public float farPlane = 1000;
+        static public float farPlane = 10000;
         /// <summary> The near plane. </summary>
-        static public float nearPlane = 0.01f;
+        static public float nearPlane = 0.001f;
         /// <summary> The movement sensitivity factor. </summary>
-        static public float movementSensitivity = 0.1f;
+        static public float movementSensitivity = 0.03f;
         /// <summary> The rotation sensitivity factor. </summary>
-        static public float rotationSensitivity = 0.05f;
+        static public float rotationSensitivity = 0.5f;
         /// <summary> The initial camera position.</summary>
-        public static Vector3 initialCameraPosition = new Vector3(0, 0, 0);
+        public static Vector3 initialCameraPosition = new Vector3(6.840405f, -9.914818f, -0.217376f);
         /// <summary> The initial camera rotation.</summary>
-        public static Vector2 initialCameraRotation = new Vector2(0, 0);
+        public static Vector2 initialCameraRotation = new Vector2(-1.628771f, 0.2387369f);
 
-        public static string shaderDirectory = "shaders/";
+        public static string ShaderDir = "Shaders/";
+        public static string ModelDir = "Models/";
+        public static string TextureDir = "Textures/";
+        public static string MaterialDir = "Materials/";
+
+        public static string ModelExt = ".obj";
+        public static string MaterialExt = ".mtl";
+        public static string TextureExt = ".png";
     }
 }

@@ -141,7 +141,7 @@ namespace Insight
             Pass = new SurfacePass(device);
 
             // by default, just load the aperture from a default image (change this later)
-            Resource defaultAperture = Texture2D.FromFile(device, "C:\\aperture2.png");
+            Resource defaultAperture = Texture2D.FromFile(device, "aperture.png");
             ShaderResourceView view = new ShaderResourceView(device, defaultAperture);
 
             Pass.Pass(device, @"

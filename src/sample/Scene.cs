@@ -115,7 +115,7 @@ namespace Sample
             {
                 case ShaderType.Vertex:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "vs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "vs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         vertexShader = new VertexShader(device, bytecode);
                         inputLayout = new InputLayout(device, bytecode, elements);
                         bytecode.Dispose();
@@ -124,7 +124,7 @@ namespace Sample
 
                 case ShaderType.Geometry:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "gs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "gs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         geometryShader = new GeometryShader(device, bytecode, SOElements, SOStrides, GeometryShader.StreamOutputNoRasterizedStream);
                         bytecode.Dispose();
                         break;
@@ -132,7 +132,7 @@ namespace Sample
 
                 case ShaderType.Pixel:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "ps_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "ps_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         pixelShader = new PixelShader(device, bytecode);
                         bytecode.Dispose();
                         break;
@@ -140,7 +140,7 @@ namespace Sample
 
                 case ShaderType.Compute:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "cs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "cs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         computeShader = new ComputeShader(device, bytecode);
                         bytecode.Dispose();
                         break;
@@ -148,7 +148,7 @@ namespace Sample
 
                 case ShaderType.Hull:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "hs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "hs_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         hullShader = new HullShader(device, bytecode);
                         bytecode.Dispose();
                         break;
@@ -156,7 +156,7 @@ namespace Sample
 
                 case ShaderType.Domain:
                     {
-                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.shaderDirectory + shader + ".fx", "main", "ds_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
+                        ShaderBytecode bytecode = ShaderBytecode.CompileFromFile(Settings.ShaderDir + shader + ".fx", "main", "ds_5_0", ShaderFlags.OptimizationLevel3, EffectFlags.None, null, Settings.includeFX);
                         domainShader = new DomainShader(device, bytecode);
                         bytecode.Dispose();
                         break;
@@ -201,8 +201,12 @@ namespace Sample
 
         private Size resolution;
 
+        private Model model;
+
         public Scene(Device device, RenderForm window, Size resolution)
         {
+            model = new Model(device, "sibenik");
+
             this.device = device;
             this.resolution = resolution;
 
@@ -247,7 +251,7 @@ namespace Sample
                 Usage = ResourceUsage.Dynamic,
             });
 
-            renderVS = new Shader(device, "renderVS", ShaderType.Vertex, new[] { new InputElement("POSITION", 0, Format.R32G32B32A32_Float, 0, 0), new InputElement("COLOR", 0, Format.R32G32B32A32_Float, 16, 0) }, null, null);
+            renderVS = new Shader(device, "renderVS", ShaderType.Vertex, new[] { new InputElement("POSITION", 0, Format.R32G32B32A32_Float, 0, 0), new InputElement("NORMAL", 0, Format.R32G32B32A32_Float, 16, 0), new InputElement("TEXCOORD", 0, Format.R32G32B32A32_Float, 32, 0) }, null, null);
             renderPS = new Shader(device, "renderPS", ShaderType.Pixel, null, null, null);
         }
 
@@ -317,6 +321,11 @@ namespace Sample
             return movement;
         }
 
+        public bool isKeyPressed(Key key)
+        {
+            return keyboard.GetCurrentState().PressedKeys.Contains(key);
+        }
+
         Buffer constantBuffer;
         Shader renderVS, renderPS;
 
@@ -330,7 +339,7 @@ namespace Sample
             if (keyboard.GetCurrentState().PressedKeys.Contains(Key.Escape)) Environment.Exit(1);
 
             device.ImmediateContext.ClearDepthStencilView(depthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
-            device.ImmediateContext.ClearRenderTargetView(renderTargetView, new Color4(0, 0, 0, 1));
+            device.ImmediateContext.ClearRenderTargetView(renderTargetView, new Color4(0.5f, 0, 1, 1));
 
             device.ImmediateContext.Rasterizer.State = new RasterizerState(device, new RasterizerStateDescription() { CullMode = CullMode.None, FillMode = FillMode.Solid });
             device.ImmediateContext.Rasterizer.SetViewports(new[] { new ViewportF(0, 0, resolution.Width, resolution.Height) });
@@ -358,11 +367,13 @@ namespace Sample
             device.ImmediateContext.PixelShader.SetShaderResource(2, null);
 
             /* Render the chunk. */
-            device.ImmediateContext.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding[] { new VertexBufferBinding(vertexBuffer, 32, 0) });
+            //device.ImmediateContext.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding[] { new VertexBufferBinding(vertexBuffer, 32, 0) });
 
-            device.ImmediateContext.Draw(6, 0);
+            //device.ImmediateContext.Draw(6, 0);
 
-            device.ImmediateContext.OutputMerger.SetTargets((DepthStencilView)null, (RenderTargetView)null);
+            model.Render(device, camera);
+
+            device.ImmediateContext.ClearState();
         }
     }
 }
