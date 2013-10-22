@@ -30,7 +30,7 @@ The library is currently a work in progress and is **not** ready for use.
 
 ✔ Has a working pipeline and tonemapping algorithm
 
-✔ Extremely basic 3D scene featuring two triangles (it's a start!)
+✔ First iteration of the test scene (not very pretty but it works)
 
 ✘ No configuration options at all (nor any GUI) yet
 
