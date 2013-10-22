@@ -90,10 +90,14 @@ namespace Sample
                 }
             }, out device, out swapChain);
 
+            ldrBuffer = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
+
+            device.ImmediateContext.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
+            swapChain.Present(0, PresentFlags.None);
+
             temporary = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
             hdrBuffer = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
             intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            ldrBuffer = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
 
             lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
 
@@ -141,7 +145,7 @@ namespace Sample
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 4;
+        private double exposure = 0.14f;
 
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via

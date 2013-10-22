@@ -12,101 +12,6 @@ using Buffer = SharpDX.Direct3D11.Buffer;
 namespace Sample
 {
     /// <summary>
-    /// Represents a mesh material.
-    /// </summary>
-    class Material
-    {
-        private String colorMap, bumpMap;
-        private Vector3 kD, kS;
-        private float illum;
-        private float nS;
-
-        /// <summary>
-        /// Name of the color map.
-        /// </summary>
-        public String ColorMap
-        {
-            get { return colorMap; }
-            set { colorMap = value; }
-        }
-
-        /// <summary>
-        /// Name of the bump map.
-        /// </summary>
-        public String BumpMap
-        {
-            get { return bumpMap; }
-            set { bumpMap = value; }
-        }
-
-        /// <summary>
-        /// Diffuse reflectance coefficient.
-        /// </summary>
-        public Vector3 DiffuseReflectance
-        {
-            get { return kD; }
-            set { kD = value; }
-        }
-
-        /// <summary>
-        /// Specular reflectance coefficient.
-        /// </summary>
-        public Vector3 SpecularReflectance
-        {
-            get { return kS; }
-            set { kS = value; }
-        }
-
-        /// <summary>
-        /// Specular shininess coefficient.
-        /// </summary>
-        public float SpecularShininess
-        {
-            get { return nS; }
-            set { nS = value; }
-        }
-
-        /// <summary>
-        /// Brightness multiplier.
-        /// </summary>
-        public float Brightness
-        {
-            get { return illum; }
-            set { illum = value; }
-        }
-
-        /// <summary>
-        /// Creates a default material instance.
-        /// </summary>
-        public Material()
-        {
-
-        }
-
-        /// <summary>
-        /// Writes this Triangle instance to a stream, as v1/n1/t1 - v2/n2/t2 - v3/n3/t3 with 4-component vectors.
-        /// </summary>
-        /// <param name="stream">The stream (at the correct position) to which to write the triangle.</param>
-        public void WriteTo(DataStream stream)
-        {
-            stream.Write<Vector4>(new Vector4(kD, 1.0f));
-            stream.Write<Vector4>(new Vector4(kS, 1.0f));
-            stream.Write<Vector4>(new Vector4(nS, nS, nS, nS));
-            stream.Write<Vector4>(new Vector4(illum, illum, illum, illum));
-        }
-
-        /// <summary>
-        /// Returns the size, in bytes, that this material will take in a constant buffer.
-        /// </summary>
-        /// <returns>Size of a Material instance, in bytes.</returns>
-        public static int Size()
-        {
-            /* Note the maps are bound separately. */
-            return sizeof(float) * 4 * 4;
-        }
-    }
-
-    /// <summary>
     /// Represents a 3D triangle.
     /// </summary>
     class Triangle
@@ -188,114 +93,25 @@ namespace Sample
     }
 
     /// <summary>
-    /// Represents a mesh, with a material and collection of assets.
-    /// </summary>
-    class Mesh
-    {
-        /// <summary>
-        /// A buffer containing the mesh vertices.
-        /// </summary>
-        private Buffer vertices;
-
-        /// <summary>
-        /// A vertex buffer binding for the pipeline.
-        /// </summary>
-        private VertexBufferBinding vertexBuffer;
-
-        /// <summary>
-        /// Material to use to render this mesh.
-        /// </summary>
-        private Material material;
-
-        /// <summary>
-        /// Constant buffer for the material.
-        /// </summary>
-        private Buffer materialBuffer;
-
-        private SamplerState sampler;
-
-        /// <summary>
-        /// Creates a new mesh.
-        /// </summary>
-        /// <param name="device">The device to use.</param>
-        /// <param name="meshName">The mesh name (the material to use).</param>
-        /// <param name="faces">The list of triangles in the mesh.</param>
-        /// <param name="material">The material for this mesh.</param>
-        public Mesh(Device device, String meshName, List<Triangle> faces, Material material)
-        {
-            using (DataStream triangleStream = new DataStream(Triangle.Size() * faces.Count, false, true))
-            {
-                foreach (Triangle triangle in faces) triangle.WriteTo(triangleStream);
-                triangleStream.Position = 0;
-
-                BufferDescription description = new BufferDescription()
-                {
-                    Usage = ResourceUsage.Immutable,
-                    BindFlags = BindFlags.VertexBuffer,
-                    CpuAccessFlags = CpuAccessFlags.None,
-                    SizeInBytes = Triangle.Size() * faces.Count,
-                };
-
-                vertices = new Buffer(device, triangleStream, description);
-                vertexBuffer = new VertexBufferBinding(vertices, Triangle.Size() / 3, 0);
-            }
-
-            this.material = material;
-
-            using (DataStream materialStream = new DataStream(Material.Size(), false, true))
-            {
-                material.WriteTo(materialStream);
-                materialStream.Position = 0;
-
-                BufferDescription description = new BufferDescription()
-                {
-                    SizeInBytes = Material.Size(),
-                    Usage = ResourceUsage.Immutable,
-                    BindFlags = BindFlags.ConstantBuffer,
-                    CpuAccessFlags = CpuAccessFlags.None,
-                };
-
-                materialBuffer = new Buffer(device, materialStream, description);
-            }
-
-            sampler = new SamplerState(device, new SamplerStateDescription()
-            {
-                AddressU = TextureAddressMode.Wrap,
-                AddressV = TextureAddressMode.Wrap,
-                AddressW = TextureAddressMode.Wrap,
-                BorderColor = Color4.Black,
-                ComparisonFunction = Comparison.Always,
-                Filter = Filter.Anisotropic,
-                MaximumAnisotropy = 16,
-                MaximumLod = 15,
-                MinimumLod = 0,
-                MipLodBias = 0
-            });
-        }
-
-        public void Render(Device device, Camera camera, MapCache mapCache)
-        {
-            ShaderResourceView color = (material.ColorMap == null ? null : mapCache.Request(device, material.ColorMap));
-            ShaderResourceView bump  = ( material.BumpMap == null ? null : mapCache.Request(device, material.BumpMap));
-
-            device.ImmediateContext.PixelShader.SetConstantBuffer(1, materialBuffer);
-            device.ImmediateContext.PixelShader.SetShaderResource(0, color);
-            device.ImmediateContext.PixelShader.SetShaderResource(1, bump);
-
-            device.ImmediateContext.PixelShader.SetSampler(0, sampler);
-            
-            device.ImmediateContext.InputAssembler.SetVertexBuffers(0, new[] { vertexBuffer });
-
-            device.ImmediateContext.Draw(vertices.Description.SizeInBytes / vertexBuffer.Stride, 0);
-        }
-    }
-
-    /// <summary>
     /// Utility class to load and cache color/bump maps.
     /// </summary>
     class MapCache
     {
         private Dictionary<String, ShaderResourceView> cache = new Dictionary<String, ShaderResourceView>();
+
+        private ShaderResourceView LoadMap(Device device, String mapName)
+        {
+            if (mapName != null)
+            {
+                String path = Settings.TextureDir + mapName;
+                Texture2D texture = (Texture2D)Texture2D.FromFile(device, path);
+                ShaderResourceView view = new ShaderResourceView(device, texture);
+
+                return view;
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Requests a map by a given name.
@@ -305,19 +121,14 @@ namespace Sample
         /// <returns>The map view (as a texture SRV).</returns>
         public ShaderResourceView Request(Device device, String mapName)
         {
-            if (!cache.ContainsKey(mapName))
-                cache.Add(mapName, LoadMap(device, mapName));
+            if (mapName != null)
+            {
+                if (!cache.ContainsKey(mapName)) cache.Add(mapName, LoadMap(device, mapName));
 
-            return cache[mapName];
-        }
+                return cache[mapName];
+            }
 
-        private ShaderResourceView LoadMap(Device device, String mapName)
-        {
-            String path = Settings.TextureDir + mapName;
-            Texture2D texture = (Texture2D)Texture2D.FromFile(device, path);
-            ShaderResourceView view = new ShaderResourceView(device, texture);
-
-            return view;
+            return null;
         }
     }
 
@@ -327,6 +138,13 @@ namespace Sample
     /// </summary>
     class Model
     {
+        /// <summary>
+        /// Vertex layout to use for the vertex shader.
+        /// </summary>
+        private static InputElement[] VertexLayout = new[] { new InputElement("POSITION", 0, Format.R32G32B32A32_Float,  0, 0),
+                                                             new InputElement("NORMAL",   0, Format.R32G32B32A32_Float, 16, 0),
+                                                             new InputElement("TEXCOORD", 0, Format.R32G32B32A32_Float, 32, 0) };
+
         /// <summary>
         /// List of meshes in the model.
         /// </summary>
@@ -338,6 +156,31 @@ namespace Sample
         private MapCache mapCache = new MapCache();
 
         /// <summary>
+        /// Scale of the model.
+        /// </summary>
+        public Vector3 Scale { get; set; }
+
+        /// <summary>
+        /// Translation of the model.
+        /// </summary>
+        public Vector3 Translation { get; set; }
+
+        /// <summary>
+        /// Rotation of the model.
+        /// </summary>
+        public Vector3 Rotation { get; set; }
+
+        /// <summary>
+        /// Vertex shader for this model.
+        /// </summary>
+        private Shader vertexShader;
+
+        /// <summary>
+        /// Pixel shader for this model.
+        /// </summary>
+        private Shader pixelShader;
+
+        /// <summary>
         /// Loads a model from an OBJ file.
         /// </summary>
         /// <param name="device">The device to use.</param>
@@ -346,6 +189,13 @@ namespace Sample
         {
             LoadModel(device, File.ReadLines(Settings.ModelDir + modelName + Settings.ModelExt),
                               File.ReadLines(Settings.MaterialDir + modelName + Settings.MaterialExt));
+
+            vertexShader = new Shader(device, modelName, ShaderType.Vertex, VertexLayout);
+            pixelShader = new Shader(device, modelName, ShaderType.Pixel);
+
+            Scale = Vector3.One;
+            Rotation = Vector3.Zero;
+            Translation = Vector3.Zero;
         }
 
         private void LoadModel(Device device, IEnumerable<String> geometry, IEnumerable<String> materials)
@@ -357,9 +207,18 @@ namespace Sample
 
             foreach (String line in geometry)
             {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); if (tokens.Length < 4) continue;
-                if (tokens[0].Equals("v")) vertices.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), Single.Parse(tokens[3])));
-                if (tokens[0].Equals("vt")) texCoord.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), Single.Parse(tokens[3])));
+                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); if (tokens.Length < 1) continue;
+                if (tokens[0].Equals("v"))
+                {
+                    if (tokens.Length < 4) continue;
+                    vertices.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), Single.Parse(tokens[3])));
+                }
+
+                if (tokens[0].Equals("vt"))
+                {
+                    if (tokens.Length < 3) continue;
+                    texCoord.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), (tokens.Length == 3 ? 0 : Single.Parse(tokens[3]))));
+                }
             }
 
             /* Step 2 -- Find every triangle adjacent to any vertex. */
@@ -465,6 +324,7 @@ namespace Sample
             foreach (String meshName in meshFaces.Keys)
             {
                 if (meshName.Equals("sprljci")) continue; // temporary
+                if (meshName.Equals("staklo")) continue; // temporary
 
                 Material material = ParseMaterial(meshName, materials);
                 meshes.Add(new Mesh(device, meshName, meshFaces[meshName], material));
@@ -526,7 +386,15 @@ namespace Sample
 
         public void Render(Device device, Camera camera)
         {
-            foreach (Mesh mesh in meshes) mesh.Render(device, camera, mapCache);
+            device.ImmediateContext.VertexShader.Set(vertexShader.vertexShader);
+            device.ImmediateContext.PixelShader.Set(pixelShader.pixelShader);
+            device.ImmediateContext.InputAssembler.InputLayout = vertexShader.inputLayout;
+
+            Matrix modelToWorld = Matrix.Scaling(Scale)
+                                * Matrix.RotationYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z)
+                                * Matrix.Translation(Translation);
+
+            foreach (Mesh mesh in meshes) mesh.Render(device, modelToWorld, camera, mapCache);
         }
     }
 }

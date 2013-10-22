@@ -32,17 +32,17 @@ namespace Sample
         /// <summary> An include handler for shaders. </summary>
         public static IncludeFX includeFX = new IncludeFX();
 
-        private static Size initialResolution = new Size(800, 600);
+        private static Size initialResolution = new Size(1280, 800);
         public static Size InitialResolution { get { return initialResolution; } }
 
         /// <summary> The far plane. </summary>
-        static public float farPlane = 10000;
+        static public float farPlane = 100000;
         /// <summary> The near plane. </summary>
-        static public float nearPlane = 0.001f;
+        static public float nearPlane = 0.1f;
         /// <summary> The movement sensitivity factor. </summary>
-        static public float movementSensitivity = 0.03f;
+        static public float movementSensitivity = 0.3f;
         /// <summary> The rotation sensitivity factor. </summary>
-        static public float rotationSensitivity = 0.5f;
+        static public float rotationSensitivity = 0.9f;
         /// <summary> The initial camera position.</summary>
         public static Vector3 initialCameraPosition = new Vector3(6.840405f, -9.914818f, -0.217376f);
         /// <summary> The initial camera rotation.</summary>

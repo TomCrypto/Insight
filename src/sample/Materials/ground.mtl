@@ -1,0 +1,6 @@
+newmtl ground
+	Ns 8.000000
+	illum 2
+	Kd 0.734118 0.730588 0.674118
+	Ks 0.000000 0.000000 0.000000
+	map_Kd grass.jpg

@@ -17,19 +17,38 @@ namespace Sample
             RenderForm window = new RenderForm("Insight Library Sample");
             //window.StartPosition   = FormStartPosition.CenterScreen;
             window.FormBorderStyle = FormBorderStyle.FixedDialog;
-            window.ClientSize      = Settings.InitialResolution;
             window.Icon            = Resources.ProgramIcon;
             window.MaximizeBox     = false;
 
-            using (Renderer renderer = new Renderer(window))
-            {
-                RenderLoop.Run(window, () =>
-                {
-                    renderer.Render();
-                });
-            }
+            window.Location = new Point(10, 10);
+            Renderer renderer = null;
 
+            RenderLoop.Run(window, () =>
+            {
+                if (window.ClientSize != DisplayResolution)
+                {
+                    if (renderer != null) renderer.Dispose();
+                    window.ClientSize = DisplayResolution;
+                    renderer = new Renderer(window);
+                }
+
+                renderer.Render();
+            });
+
+            renderer.Dispose();
             window.Dispose();
+        }
+
+        static private Size resolution = Settings.InitialResolution;
+
+        /// <summary>
+        /// Gets or sets the display resolution (if changed, will
+        /// fully reinitialize the renderer on the next frame).
+        /// </summary>
+        static public Size DisplayResolution
+        {
+            get { return resolution; }
+            set { resolution = value; }
         }
     }
 }
