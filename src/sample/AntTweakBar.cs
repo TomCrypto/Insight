@@ -123,8 +123,10 @@ namespace Sample
                 : base(bar, name)
             {
                 val = defaultValue;
+                String definition;
 
-                String definition = String.Format("min={0} max={1} step={2} group='{3}' help='{4}'", minValue, maxValue, step, group, help);
+                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} group='{3}'", minValue, maxValue, step, group);
+                else definition = String.Format("min={0} max={1} step={2} group='{3}' help='{4}'", minValue, maxValue, step, group, help);
                 AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_INT32, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
@@ -175,8 +177,10 @@ namespace Sample
                 : base(bar, name)
             {
                 val = defaultValue;
+                String definition;
 
-                String definition = String.Format("min={0} max={1} step={2} precision={3} group='{4}' help='{5}'", minValue, maxValue, step, precision, group, help);
+                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} precision={3} group='{4}'", minValue, maxValue, step, precision, group);
+                else definition = String.Format("min={0} max={1} step={2} precision={3} group='{4}' help='{5}'", minValue, maxValue, step, precision, group, help);
                 AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_DOUBLE, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
@@ -229,8 +233,10 @@ namespace Sample
                 : base(bar, name)
             {
                 val = defaultValue;
+                String definition;
 
-                String definition = String.Format("true={0} false={1} group='{2}' help='{3}'", trueLabel, falseLabel, group, help);
+                if ((help == "") || (help == null)) definition = String.Format("true={0} false={1} group='{2}'", trueLabel, falseLabel, group);
+                else definition = String.Format("true={0} false={1} group='{2}' help='{3}'", trueLabel, falseLabel, group, help);
                 AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_BOOL32, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
@@ -282,8 +288,10 @@ namespace Sample
                 : base(bar, name)
             {
                 val = defaultValue;
+                String definition;
 
-                String definition = String.Format("group='{0}' help='{1}'", group, help);
+                if ((help == "") || (help == null)) definition = String.Format("group='{0}'", group);
+                else definition = String.Format("group='{0}' help='{1}'", group, help);
                 AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_DIR3D, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
@@ -338,8 +346,10 @@ namespace Sample
                 : base(bar, name)
             {
                 val = defaultValue;
+                String definition;
 
-                String definition = String.Format("group='{0}' help='{1}'", group, help);
+                if ((help == "") || (help == null)) definition = String.Format("group='{0}'", group);
+                else definition = String.Format("group='{0}' help='{1}'", group, help);
                 AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_COLOR3F, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
