@@ -59,7 +59,7 @@ The provided sample is intended to showcase the library. It features many real-t
 </p>
 
 <p align="center">
-<img src="extra/screenshot.png" alt="Screenshot of the sample program"></img> 
+<img src="res/screenshot.png" alt="Screenshot of the sample program"></img> 
 </p>
 
 <p align="center">
