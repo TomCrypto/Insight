@@ -414,7 +414,7 @@ namespace Sample
         /// <param name="defaultValue">The default (initial) value.</param>
         /// <param name="step">The interval at which the variable changes.</param>
         /// <param name="help">An optional help string.</param>
-        public void AddIntegerScalar(String identifier, String name, String group, int minValue, int maxValue, int defaultValue, int step = 1, String help = "")
+        public void AddInteger(String identifier, String name, String group, int minValue, int maxValue, int defaultValue, int step = 1, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
             variables.Add(identifier, new IntegerVariable(bar, name, group, minValue, maxValue, defaultValue, step, help));
@@ -432,7 +432,7 @@ namespace Sample
         /// <param name="step">The interval at which the variable changes.</param>
         /// <param name="precision">The number of significant digits printed after the period.</param>
         /// <param name="help">An optional help string.</param>
-        public void AddFloatScalar(String identifier, String name, String group, double minValue, double maxValue, double defaultValue, double step = 0.1, double precision = 2, String help = "")
+        public void AddFloat(String identifier, String name, String group, double minValue, double maxValue, double defaultValue, double step = 0.1, double precision = 2, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
             variables.Add(identifier, new FloatVariable(bar, name, group, minValue, maxValue, defaultValue, step, precision, help));
@@ -448,7 +448,7 @@ namespace Sample
         /// <param name="falseLabel">The label to display when the variable is set to false.</param>
         /// <param name="defaultValue">The default (initial) value.</param>
         /// <param name="help">An optional help string.</param>
-        public void AddBool(String identifier, String name, String group, String trueLabel, String falseLabel, bool defaultValue, String help = "")
+        public void AddBoolean(String identifier, String name, String group, String trueLabel, String falseLabel, bool defaultValue, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
             variables.Add(identifier, new BooleanVariable(bar, name, group, trueLabel, falseLabel, defaultValue, help));

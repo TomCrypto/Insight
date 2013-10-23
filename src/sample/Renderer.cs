@@ -60,7 +60,7 @@ namespace Sample
         /// </summary>
         private double lastFrameTime;
 
-        private TweakBar bar, bar2;
+        private TweakBar bar;
 
         private Scene scene;
 
@@ -113,19 +113,15 @@ namespace Sample
             bar = new TweakBar(window, "Configuration Options");
 
             //bar.AddIntegerScalar("Testing", "min=5 max=50 group=Sponge keyincr=l keydecr=L", 42);
-            bar.AddIntegerScalar("test", "Testing", "Group", 5, 15, 7, 1, "This is a help string");
+            bar.AddInteger("test", "Testing", "Group", 5, 15, 7, 1, "This is a help string");
 
-            bar.AddFloatScalar("exposure", "Exposure", "Group", 0, 3, 0.14, 0.01, 1, "");
+            bar.AddFloat("exposure", "Exposure", "Group", 0, 3, 0.14, 0.01, 1, "");
 
-            bar.AddBool("bool", "Boolean Test", "Group/Test", "ON", "OFF", true);
+            bar.AddBoolean("bool", "Boolean Test", "Group/Test", "ON", "OFF", true);
 
             bar.AddDirection("dir", "Direction Test", "Group 2", new Vector3(0.5f, 0, 0), "help!");
 
             bar.AddColor("col", "Color Test", "Group 2", new Color3(0.5f, 0, 0), "help!");
-
-            bar2 = new TweakBar(window, "Panel 2");
-
-            bar2.AddBool("bool", "hello there", "Dummy group", "Yes", "No", true, "Stuff");
         }
 
         bool addFlares = true;
