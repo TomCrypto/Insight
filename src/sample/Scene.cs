@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Windows.Forms;
 
 using SharpDX;
 using SharpDX.DXGI;
@@ -123,7 +124,9 @@ namespace Sample
 
         private Keyboard keyboard;
 
+        private RenderForm window;
         private Point mousePoint;
+        private bool pressed;
 
         private Size resolution;
 
@@ -141,11 +144,39 @@ namespace Sample
             ground.Translation = new Vector3(0, -15.35f, 0);
 
             this.device = device;
+            this.window = window;
             this.resolution = resolution;
 
             CreateDepthbuffer(resolution);
             CreateInput(window);
             CreateCamera(resolution);
+
+            window.MouseUp += MouseUp;
+            window.MouseDown += MouseDown;
+            window.MouseMove += MouseMove;
+        }
+
+        private void MouseDown(object sender, MouseEventArgs e)
+        {
+            mousePoint = new Point(e.X, e.Y);
+            pressed = true;
+        }
+
+        private void MouseUp(object sender, MouseEventArgs e)
+        {
+            pressed = false;
+        }
+
+        private void MouseMove(object sender, MouseEventArgs e)
+        {
+            if (pressed)
+            {
+                float dx = (float)(e.X - mousePoint.X) / window.ClientSize.Width;
+                float dy = (float)(mousePoint.Y - e.Y) / window.ClientSize.Height;
+
+                camera.RotateCamera(new Vector2(dx, dy));
+                mousePoint = new Point(e.X, e.Y);
+            }
         }
 
         /// <summary> Creates the depth buffer with the current settings. </summary>
@@ -192,14 +223,6 @@ namespace Sample
             camera = new Camera(Settings.initialCameraPosition, Settings.initialCameraRotation, 75, (float)resolution.Width / resolution.Height);
         }
 
-        /// <summary> Returns the mouse rotation vector. Also resets the mouse to the center of the screen. </summary>
-        public Vector2 AcquireMouseInput()
-        {
-            Point mousePosition = System.Windows.Forms.Cursor.Position;
-            System.Windows.Forms.Cursor.Position = mousePoint;
-            return new Vector2((mousePosition.X - mousePoint.X) / (float)mousePoint.X, (mousePoint.Y - mousePosition.Y) / (float)mousePoint.Y);
-        }
-
         /// <summary> Returns the keyboard movement vector. </summary>
         public Vector3 AcquireKeyboardInput()
         {
@@ -227,7 +250,6 @@ namespace Sample
         public void Render(RenderTargetView renderTargetView)
         {
             /* Acquire user input, also clamp the up/down rotation term. */
-            camera.RotateCamera(AcquireMouseInput());
             camera.MoveCamera(AcquireKeyboardInput());
 
             if (keyboard.GetCurrentState().PressedKeys.Contains(Key.Escape)) Environment.Exit(1);

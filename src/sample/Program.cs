@@ -14,7 +14,7 @@ namespace Sample
         [STAThread]
         static void Main()
         {
-            RenderForm window = new RenderForm("Insight Library Sample");
+            AntRenderForm window = new AntRenderForm("Insight Library Sample");
             //window.StartPosition   = FormStartPosition.CenterScreen;
             window.FormBorderStyle = FormBorderStyle.FixedDialog;
             window.Icon            = Resources.ProgramIcon;
@@ -30,6 +30,7 @@ namespace Sample
                     if (renderer != null) renderer.Dispose();
                     window.ClientSize = DisplayResolution;
                     renderer = new Renderer(window);
+                    TweakBar.UpdateWindow(window);
                 }
 
                 renderer.Render();

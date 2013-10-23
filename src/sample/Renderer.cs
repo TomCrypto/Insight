@@ -60,6 +60,8 @@ namespace Sample
         /// </summary>
         private double lastFrameTime;
 
+        private TweakBar bar, bar2;
+
         private Scene scene;
 
         public Renderer(RenderForm window)
@@ -104,6 +106,26 @@ namespace Sample
             scene = new Scene(device, window, window.ClientSize);
 
             timer.Start();
+
+            TweakBar.InitializeLibrary(device);
+            TweakBar.UpdateWindow(window);
+
+            bar = new TweakBar(window, "Configuration Options");
+
+            //bar.AddIntegerScalar("Testing", "min=5 max=50 group=Sponge keyincr=l keydecr=L", 42);
+            bar.AddIntegerScalar("test", "Testing", "Group", 5, 15, 7, 1, "This is a help string");
+
+            bar.AddFloatScalar("exposure", "Exposure", "Group", 0, 3, 0.14, 0.01, 1, "");
+
+            bar.AddBool("bool", "Boolean Test", "Group/Test", "ON", "OFF", true);
+
+            bar.AddDirection("dir", "Direction Test", "Group 2", new Vector3(0.5f, 0, 0), "help!");
+
+            bar.AddColor("col", "Color Test", "Group 2", new Color3(0.5f, 0, 0), "help!");
+
+            bar2 = new TweakBar(window, "Panel 2");
+
+            bar2.AddBool("bool", "hello there", "Dummy group", "Yes", "No", true, "Stuff");
         }
 
         bool addFlares = true;
@@ -120,7 +142,9 @@ namespace Sample
 
             if (addFlares) RenderLensFlares();
 
-            Tonemap();
+            Tonemap((Double)bar["exposure"]);
+
+            TweakBar.Render();
 
             Present();
         }
@@ -145,13 +169,11 @@ namespace Sample
             lastFrameTime = frameTime;
         }
 
-        private double exposure = 0.14f;
-
         /// <summary>
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
         /// a temporary texture for staging, using the Reinhard operator.
         /// </summary>
-        private void Tonemap()
+        private void Tonemap(double exposure)
         {
             lensFlare.Pass.Pass(device, @"
             texture2D source             : register(t0);
@@ -261,6 +283,7 @@ namespace Sample
         {
             if (disposing)
             {
+                TweakBar.FinalizeLibrary();
                 ldrBuffer.Dispose();
                 hdrBuffer.Dispose();
                 temporary.Dispose();
