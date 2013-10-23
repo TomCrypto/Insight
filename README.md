@@ -36,6 +36,10 @@ The library is currently a work in progress and is **not** ready for use.
 
 ✔ Configuration GUI is up and running (though there isn't much to configure yet)
 
+#### Misc.
+
+✘ No documentation available yet - it will be written as the library interface stabilizes
+
 Build Instructions
 ------------------
 
