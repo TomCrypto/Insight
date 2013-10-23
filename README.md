@@ -26,13 +26,15 @@ The library is currently a work in progress and is **not** ready for use.
 
 ✔ Supports arbitrary input sizes to some extent (not completely pixel-perfect, and not very optimized)
 
+✘ Does not handle aspect ratio properly (diffraction spectrum is incorrectly stretched)
+
 #### Sample
 
 ✔ Has a working pipeline and tonemapping algorithm
 
 ✔ First iteration of the test scene (not very pretty but it works)
 
-✘ No configuration options at all (nor any GUI) yet
+✔ Configuration GUI is up and running (though there isn't much to configure yet)
 
 Build Instructions
 ------------------

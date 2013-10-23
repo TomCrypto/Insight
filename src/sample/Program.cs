@@ -14,33 +14,36 @@ namespace Sample
         [STAThread]
         static void Main()
         {
-            AntRenderForm window = new AntRenderForm("Insight Library Sample");
-            //window.StartPosition   = FormStartPosition.CenterScreen;
-            window.FormBorderStyle = FormBorderStyle.FixedDialog;
-            window.Icon            = Resources.ProgramIcon;
-            window.MaximizeBox     = false;
-
-            window.Location = new Point(10, 10);
-            Renderer renderer = null;
-
-            RenderLoop.Run(window, () =>
+            try
             {
-                if (window.ClientSize != DisplayResolution)
+                AntRenderForm window = new AntRenderForm("Insight Library Sample");
+                Renderer renderer = null;
+
+                RenderLoop.Run(window, () =>
                 {
-                    if (renderer != null) renderer.Dispose();
-                    window.ClientSize = DisplayResolution;
-                    renderer = new Renderer(window);
-                    TweakBar.UpdateWindow(window);
-                }
+                    if (resolutionChanged)
+                    {
+                        if (renderer != null) renderer.Dispose();
+                        window.ClientSize = DisplayResolution;
+                        renderer = new Renderer(window);
+                        TweakBar.UpdateWindow(window);
+                        resolutionChanged = false;
+                    }
 
-                renderer.Render();
-            });
+                    renderer.Render();
+                });
 
-            renderer.Dispose();
-            window.Dispose();
+                renderer.Dispose();
+                window.Dispose();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message, "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         static private Size resolution = Settings.InitialResolution;
+        static private Boolean resolutionChanged = true;
 
         /// <summary>
         /// Gets or sets the display resolution (if changed, will
@@ -48,8 +51,19 @@ namespace Sample
         /// </summary>
         static public Size DisplayResolution
         {
-            get { return resolution; }
-            set { resolution = value; }
+            get
+            {
+                return resolution;
+            }
+
+            set
+            {
+                if (value != resolution)
+                {
+                    resolutionChanged = true;
+                    resolution = value;
+                }
+            }
         }
     }
 }

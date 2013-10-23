@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -6,6 +7,7 @@ using System.Runtime.InteropServices;
 using SharpDX;
 using SharpDX.Windows;
 using SharpDX.Direct3D11;
+using Point = System.Drawing.Point;
 using Device = SharpDX.Direct3D11.Device;
 
 namespace Sample
@@ -20,7 +22,10 @@ namespace Sample
         public AntRenderForm(String title)
             : base(title)
         {
-
+            //window.StartPosition   = FormStartPosition.CenterScreen;
+            //window.FormBorderStyle = FormBorderStyle.FixedDialog;
+            Icon = Resources.ProgramIcon;
+            Location = new Point(10, 10);
         }
 
         protected override void WndProc(ref System.Windows.Forms.Message m)
@@ -43,7 +48,7 @@ namespace Sample
         private abstract class Variable : IDisposable
         {
             protected readonly IntPtr bar;
-            protected readonly String name;
+            protected readonly String identifier;
 
             /* Must maintain strong references to callbacks. */
             protected AntTweakBar.TwGetVarCallback getCallback;
@@ -53,11 +58,11 @@ namespace Sample
             /// Creates a new variable.
             /// </summary>
             /// <param name="bar">The bar handle.</param>
-            /// <param name="name">The variable name.</param>
-            public Variable(IntPtr bar, String name)
+            /// <param name="name">The variable identifier.</param>
+            public Variable(IntPtr bar, String identifier)
             {
                 this.bar  = bar;
-                this.name = name;
+                this.identifier = identifier;
 
                 getCallback = GetCallback;
                 setCallback = SetCallback;
@@ -98,7 +103,7 @@ namespace Sample
             {
                 if (disposing)
                 {
-                    AntTweakBar.TwRemoveVar(bar, name);
+                    AntTweakBar.TwRemoveVar(bar, identifier);
                 }
             }
 
@@ -119,15 +124,15 @@ namespace Sample
             /// </summary>
             private int val;
 
-            public IntegerVariable(IntPtr bar, String name, String group, int minValue, int maxValue, int defaultValue, int step, String help)
-                : base(bar, name)
+            public IntegerVariable(IntPtr bar, String identifier, String name, String group, int minValue, int maxValue, int defaultValue, int step, String help)
+                : base(bar, identifier)
             {
                 val = defaultValue;
                 String definition;
 
-                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} group='{3}'", minValue, maxValue, step, group);
-                else definition = String.Format("min={0} max={1} step={2} group='{3}' help='{4}'", minValue, maxValue, step, group, help);
-                AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_INT32, setCallback, getCallback, IntPtr.Zero, definition);
+                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} label='{3}' group='{4}'", minValue, maxValue, step, name, group);
+                else definition = String.Format("min={0} max={1} step={2} label='{3}' group='{4}' help='{5}'", minValue, maxValue, step, name, group, help);
+                AntTweakBar.TwAddVarCB(bar, identifier, AntTweakBar.Type.TW_TYPE_INT32, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
             protected override void SetCallback(IntPtr value, IntPtr clientData)
@@ -173,15 +178,15 @@ namespace Sample
             /// </summary>
             private double val;
 
-            public FloatVariable(IntPtr bar, String name, String group, double minValue, double maxValue, double defaultValue, double step, double precision, String help)
-                : base(bar, name)
+            public FloatVariable(IntPtr bar, String identifier, String name, String group, double minValue, double maxValue, double defaultValue, double step, double precision, String help)
+                : base(bar, identifier)
             {
                 val = defaultValue;
                 String definition;
 
-                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} precision={3} group='{4}'", minValue, maxValue, step, precision, group);
-                else definition = String.Format("min={0} max={1} step={2} precision={3} group='{4}' help='{5}'", minValue, maxValue, step, precision, group, help);
-                AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_DOUBLE, setCallback, getCallback, IntPtr.Zero, definition);
+                if ((help == "") || (help == null)) definition = String.Format("min={0} max={1} step={2} precision={3} label='{4}' group='{5}'", minValue, maxValue, step, precision, name, group);
+                else definition = String.Format("min={0} max={1} step={2} precision={3} label='{4}' group='{5}' help='{6}'", minValue, maxValue, step, precision, name, group, help);
+                AntTweakBar.TwAddVarCB(bar, identifier, AntTweakBar.Type.TW_TYPE_DOUBLE, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
             protected override void SetCallback(IntPtr value, IntPtr clientData)
@@ -229,15 +234,15 @@ namespace Sample
             /// </summary>
             private bool val;
 
-            public BooleanVariable(IntPtr bar, String name, String group, String trueLabel, String falseLabel, bool defaultValue, String help)
-                : base(bar, name)
+            public BooleanVariable(IntPtr bar, String identifier, String name, String group, String trueLabel, String falseLabel, bool defaultValue, String help)
+                : base(bar, identifier)
             {
                 val = defaultValue;
                 String definition;
 
-                if ((help == "") || (help == null)) definition = String.Format("true={0} false={1} group='{2}'", trueLabel, falseLabel, group);
-                else definition = String.Format("true={0} false={1} group='{2}' help='{3}'", trueLabel, falseLabel, group, help);
-                AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_BOOL32, setCallback, getCallback, IntPtr.Zero, definition);
+                if ((help == "") || (help == null)) definition = String.Format("true={0} false={1} label='{2}' group='{3}'", trueLabel, falseLabel, name, group);
+                else definition = String.Format("true={0} false={1} label='{2}' group='{3}' help='{4}'", trueLabel, falseLabel, name, group, help);
+                AntTweakBar.TwAddVarCB(bar, identifier, AntTweakBar.Type.TW_TYPE_BOOL32, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
             protected override void SetCallback(IntPtr value, IntPtr clientData)
@@ -284,15 +289,15 @@ namespace Sample
             /// </summary>
             private Vector3 val;
 
-            public DirectionVariable(IntPtr bar, String name, String group, Vector3 defaultValue, String help)
-                : base(bar, name)
+            public DirectionVariable(IntPtr bar, String identifier, String name, String group, Vector3 defaultValue, String help)
+                : base(bar, identifier)
             {
                 val = defaultValue;
                 String definition;
 
-                if ((help == "") || (help == null)) definition = String.Format("group='{0}'", group);
-                else definition = String.Format("group='{0}' help='{1}'", group, help);
-                AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_DIR3D, setCallback, getCallback, IntPtr.Zero, definition);
+                if ((help == "") || (help == null)) definition = String.Format("label='{0}' group='{1}'", name, group);
+                else definition = String.Format("label='{0}' group='{1}' help='{2}'", name, group, help);
+                AntTweakBar.TwAddVarCB(bar, identifier, AntTweakBar.Type.TW_TYPE_DIR3D, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
             protected override void SetCallback(IntPtr value, IntPtr clientData)
@@ -342,15 +347,15 @@ namespace Sample
             /// </summary>
             private Color3 val;
 
-            public ColorVariable(IntPtr bar, String name, String group, Color3 defaultValue, String help)
-                : base(bar, name)
+            public ColorVariable(IntPtr bar, String identifier, String name, String group, Color3 defaultValue, String help)
+                : base(bar, identifier)
             {
                 val = defaultValue;
                 String definition;
 
-                if ((help == "") || (help == null)) definition = String.Format("group='{0}'", group);
-                else definition = String.Format("group='{0}' help='{1}'", group, help);
-                AntTweakBar.TwAddVarCB(bar, name, AntTweakBar.Type.TW_TYPE_COLOR3F, setCallback, getCallback, IntPtr.Zero, definition);
+                if ((help == "") || (help == null)) definition = String.Format("label='{0}' group='{1}'", name, group);
+                else definition = String.Format("label='{0}' group='{1}' help='{2}'", name, group, help);
+                AntTweakBar.TwAddVarCB(bar, identifier, AntTweakBar.Type.TW_TYPE_COLOR3F, setCallback, getCallback, IntPtr.Zero, definition);
             }
 
             protected override void SetCallback(IntPtr value, IntPtr clientData)
@@ -411,7 +416,7 @@ namespace Sample
         {
             this.window = window;
             bar = AntTweakBar.TwNewBar(barName);
-            if (bar == null) throw new ExternalException("Failed to create new tweak bar.");
+            if (bar == IntPtr.Zero) throw new ExternalException("Failed to create new tweak bar.");
         }
 
         /// <summary>
@@ -428,7 +433,7 @@ namespace Sample
         public void AddInteger(String identifier, String name, String group, int minValue, int maxValue, int defaultValue, int step = 1, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
-            variables.Add(identifier, new IntegerVariable(bar, name, group, minValue, maxValue, defaultValue, step, help));
+            variables.Add(identifier, new IntegerVariable(bar, identifier, name, group, minValue, maxValue, defaultValue, step, help));
         }
 
         /// <summary>
@@ -446,7 +451,7 @@ namespace Sample
         public void AddFloat(String identifier, String name, String group, double minValue, double maxValue, double defaultValue, double step = 0.1, double precision = 2, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
-            variables.Add(identifier, new FloatVariable(bar, name, group, minValue, maxValue, defaultValue, step, precision, help));
+            variables.Add(identifier, new FloatVariable(bar, identifier, name, group, minValue, maxValue, defaultValue, step, precision, help));
         }
 
         /// <summary>
@@ -462,7 +467,7 @@ namespace Sample
         public void AddBoolean(String identifier, String name, String group, String trueLabel, String falseLabel, bool defaultValue, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
-            variables.Add(identifier, new BooleanVariable(bar, name, group, trueLabel, falseLabel, defaultValue, help));
+            variables.Add(identifier, new BooleanVariable(bar, identifier, name, group, trueLabel, falseLabel, defaultValue, help));
         }
 
         /// <summary>
@@ -476,7 +481,7 @@ namespace Sample
         public void AddDirection(String identifier, String name, String group, Vector3 defaultValue, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
-            variables.Add(identifier, new DirectionVariable(bar, name, group, defaultValue, help));
+            variables.Add(identifier, new DirectionVariable(bar, identifier, name, group, defaultValue, help));
         }
 
         /// <summary>
@@ -490,7 +495,7 @@ namespace Sample
         public void AddColor(String identifier, String name, String group, Color3 defaultValue, String help = "")
         {
             if (variables.ContainsKey(identifier)) throw new ArgumentException("Variable identifier already defined.");
-            variables.Add(identifier, new ColorVariable(bar, name, group, defaultValue, help));
+            variables.Add(identifier, new ColorVariable(bar, identifier, name, group, defaultValue, help));
         }
 
         /// <summary>
@@ -572,13 +577,20 @@ namespace Sample
         #region Static Library Management
 
         /// <summary>
+        /// Whether the library is initialized.
+        /// </summary>
+        private static bool initialized;
+
+        /// <summary>
         /// Initializes the AntTweakBar library.
         /// </summary>
         /// <param name="device">SharpDX DirectX 11 device to use.</param>
         /// <returns>True if the call was successful, false otherwise.</returns>
         public static bool InitializeLibrary(Device device)
         {
-            return AntTweakBar.Init(AntTweakBar.GraphAPI.D3D11, device.NativePointer);
+            if (!initialized) initialized = AntTweakBar.Init(AntTweakBar.GraphAPI.D3D11, device.NativePointer);
+
+            return initialized;
         }
 
         /// <summary>
@@ -604,7 +616,11 @@ namespace Sample
         /// </summary>
         public static void FinalizeLibrary()
         {
-            AntTweakBar.TwTerminate();
+            if (initialized)
+            {
+                AntTweakBar.TwTerminate();
+                initialized = false;
+            }
         }
 
         #endregion

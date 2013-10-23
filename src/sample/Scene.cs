@@ -242,7 +242,7 @@ namespace Sample
 
         private void ChangeResolution(RenderTargetView renderTargetView, Size resolution)
         {
-            device.ImmediateContext.ClearRenderTargetView(renderTargetView, Color4.Black);
+            //device.ImmediateContext.ClearRenderTargetView(renderTargetView, Color4.Black);
 
             Program.DisplayResolution = resolution;
         }

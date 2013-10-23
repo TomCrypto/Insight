@@ -60,21 +60,35 @@ namespace Sample
         /// </summary>
         private double lastFrameTime;
 
-        private TweakBar bar;
+        private TweakBar tweakBar;
 
         private Scene scene;
 
-        public Renderer(RenderForm window)
+        private RenderForm window;
+
+        /// <summary>
+        /// Called when the window is resized.
+        /// </summary>
+        private void ResizeWindow(object sender, EventArgs e)
         {
-            #if DEBUG
+            Program.DisplayResolution = window.ClientSize;
+        }
+
+        /// <summary>
+        /// Initializes the graphics device and swapchain using
+        /// the window provided in the Renderer constructor.
+        /// </summary>
+        private void InitializeGraphicsDevice()
+        {
+#if DEBUG
             var flags = DeviceCreationFlags.Debug;
-            #else
+#else
             var flags = DeviceCreationFlags.None;
-            #endif
+#endif
 
             Device.CreateWithSwapChain(DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 3,
+                BufferCount = 2,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -91,54 +105,81 @@ namespace Sample
                     ScanlineOrdering = DisplayModeScanlineOrder.Progressive
                 }
             }, out device, out swapChain);
-
-            ldrBuffer = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
-
-            device.ImmediateContext.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
-            swapChain.Present(0, PresentFlags.None);
-
-            temporary = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
-            hdrBuffer = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-
-            lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
-
-            scene = new Scene(device, window, window.ClientSize);
-
-            timer.Start();
-
-            TweakBar.InitializeLibrary(device);
-            TweakBar.UpdateWindow(window);
-
-            bar = new TweakBar(window, "Configuration Options");
-
-            //bar.AddIntegerScalar("Testing", "min=5 max=50 group=Sponge keyincr=l keydecr=L", 42);
-            bar.AddInteger("test", "Testing", "Group", 5, 15, 7, 1, "This is a help string");
-
-            bar.AddFloat("exposure", "Exposure", "Group", 0, 3, 0.14, 0.01, 1, "");
-
-            bar.AddBoolean("bool", "Boolean Test", "Group/Test", "ON", "OFF", true);
-
-            bar.AddDirection("dir", "Direction Test", "Group 2", new Vector3(0.5f, 0, 0), "help!");
-
-            bar.AddColor("col", "Color Test", "Group 2", new Color3(0.5f, 0, 0), "help!");
         }
 
-        bool addFlares = true;
+        /// <summary>
+        /// Initializes the graphics resources. Also
+        /// presents once to avoid render ghosting.
+        /// </summary>
+        private void InitializeResources()
+        {
+            temporary    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
+            intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+            hdrBuffer    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+            ldrBuffer    = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
+            device.ImmediateContext.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
+            swapChain.Present(0, PresentFlags.None);
+        }
+
+        /// <summary>
+        /// Initializes our TweakBar.
+        /// </summary>
+        private void InitializeTweakBar()
+        {
+            if (!TweakBar.InitializeLibrary(device)) throw new System.Runtime.InteropServices.ExternalException("Failed to initialize AntTweakBar!");
+            else
+            {
+                tweakBar = new TweakBar(window, "Configuration Options");
+
+                tweakBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
+                tweakBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.2, 0.005, 3, "Exposure level at which to render the scene.");
+                tweakBar.AddBoolean("diffraction", "Diffraction", "General", "Yes", "No", true, "Whether to display diffraction effects or not.");
+
+                // put options here
+            }
+        }
+
+        /// <summary>
+        /// Initializes the Insight library.
+        /// </summary>
+        private void InitializeInsight()
+        {
+            // put config here
+
+            lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
+        }
+
+        /// <summary>
+        /// Initializes the sample scene.
+        /// </summary>
+        private void InitializeScene()
+        {
+            scene = new Scene(device, window, window.ClientSize);
+        }
+
+        public Renderer(RenderForm window)
+        {
+            this.window = window;
+
+            window.ResizeEnd += ResizeWindow;
+            InitializeGraphicsDevice();
+            InitializeResources();
+            InitializeTweakBar();
+            InitializeInsight();
+            InitializeScene();
+            timer.Start();
+        }
 
         /// <summary>
         /// Renders the scene to the backbuffer.
         /// </summary>
         public void Render()
         {
-            if ((scene.isKeyPressed(SharpDX.DirectInput.Key.F))) addFlares = true;
-            if ((scene.isKeyPressed(SharpDX.DirectInput.Key.R))) addFlares = false;
-
             RenderScene();
 
-            if (addFlares) RenderLensFlares();
+            if ((Boolean)tweakBar["diffraction"]) RenderLensFlares();
 
-            Tonemap((Double)bar["exposure"]);
+            Tonemap((Double)tweakBar["exposure"], (Double)tweakBar["gamma"]);
 
             TweakBar.Render();
 
@@ -169,7 +210,7 @@ namespace Sample
         /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
         /// a temporary texture for staging, using the Reinhard operator.
         /// </summary>
-        private void Tonemap(double exposure)
+        private void Tonemap(double exposure, double gamma)
         {
             lensFlare.Pass.Pass(device, @"
             texture2D source             : register(t0);
@@ -195,14 +236,15 @@ namespace Sample
 
                 float3 rgb = source.Load(int3(x, y, 0)).xyz;
 
-                return float4(rgb, log(luminance(rgb) + 1e-5f));
+                return float4(rgb, log(luminance(rgb) + 1e-6f));
             }
             ", temporary.RTV, new[] { hdrBuffer.SRV }, null);
 
             device.ImmediateContext.GenerateMips(temporary.SRV);
 
-            DataStream cbuffer = new DataStream(4, true, true);
+            DataStream cbuffer = new DataStream(8, true, true);
             cbuffer.Write<float>((float)exposure);
+            cbuffer.Write<float>(1.0f / (float)gamma);
             cbuffer.Position = 0;
 
             lensFlare.Pass.Pass(device, @"
@@ -210,7 +252,7 @@ namespace Sample
 
             cbuffer constants : register(b0)
             {
-                float exposure;
+                float exposure, invGamma;
             }
 
             struct PS_IN
@@ -241,7 +283,7 @@ namespace Sample
 
                 rgb *= key / (1.0f + lum * key);
 
-                return float4(rgb, 1);
+                return float4(pow(rgb, invGamma), 1);
             }
             ", ldrBuffer.RTV, new[] { temporary.SRV }, cbuffer);
 
@@ -279,14 +321,16 @@ namespace Sample
         {
             if (disposing)
             {
-                TweakBar.FinalizeLibrary();
                 ldrBuffer.Dispose();
                 hdrBuffer.Dispose();
                 temporary.Dispose();
                 lensFlare.Dispose();
                 swapChain.Dispose();
+                tweakBar.Dispose();
                 device.Dispose();
                 timer.Stop();
+
+                TweakBar.FinalizeLibrary();
             }
         }
 
