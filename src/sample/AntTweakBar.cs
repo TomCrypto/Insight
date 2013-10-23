@@ -14,6 +14,7 @@ namespace Sample
     /// A RenderForm which forwards mouse and keyboard events
     /// to the AntTweakBar library, to interact with bars.
     /// </summary>
+    [System.ComponentModel.DesignerCategory("")]
     public class AntRenderForm : RenderForm
     {
         public AntRenderForm(String title)
