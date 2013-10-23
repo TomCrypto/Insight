@@ -55,7 +55,11 @@ The provided sample is intended to showcase the library. It features many real-t
 </p>
 
 <p align="center">
-(insert image here)
+<img src="extra/screenshot.png" alt="Screenshot of the sample program"></img> 
+</p>
+
+<p align="center">
+The library is still very much a work in progress.
 </p>
 
 Documentation
