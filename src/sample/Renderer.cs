@@ -73,7 +73,20 @@ namespace Sample
         /// </summary>
         private void ResizeWindow(object sender, EventArgs e)
         {
-            Program.DisplayResolution = window.ClientSize;
+            context.ClearState();
+            context.Flush();
+
+            resolved.Dispose();
+            temporary.Dispose();
+            intermediate.Dispose();
+            hdrBuffer.Dispose();
+            ldrBuffer.Dispose();
+
+            swapChain.ResizeBuffers(0, 0, 0, Format.Unknown, SwapChainFlags.None);
+
+            InitializeResources();
+
+            scene.Resize(window.ClientSize);
         }
 
         /// <summary>
@@ -90,7 +103,7 @@ namespace Sample
 
             Device.CreateWithSwapChain(DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 3,
+                BufferCount = 2,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -104,7 +117,7 @@ namespace Sample
                     Height = 0,//window.ClientSize.Height,
                     RefreshRate = new Rational(60, 1),
                     Scaling = DisplayModeScaling.Centered,
-                    ScanlineOrdering = DisplayModeScanlineOrder.Progressive
+                    ScanlineOrdering = DisplayModeScanlineOrder.Unspecified
                 }
             }, out device, out swapChain);
 

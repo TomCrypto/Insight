@@ -34,7 +34,7 @@ The library is currently a work in progress and is **not** ready for use.
 
 ✔ First iteration of the test scene (not very pretty but it works)
 
-✔ Configuration GUI is up and running (though there isn't much to configure yet)
+✔ Configuration GUI is up and running
 
 #### Misc.
 

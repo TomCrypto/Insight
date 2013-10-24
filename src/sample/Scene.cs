@@ -134,6 +134,18 @@ namespace Sample
 
         private Model model, skydome, ground, house;
 
+        public void Resize(Size size)
+        {
+            resolution = size;
+
+            camera.AspectRatio = (float)resolution.Width / resolution.Height;
+            camera.FieldOfView = 75;
+
+            depthStencilView.Dispose();
+            depthBuffer.Dispose();
+            CreateDepthbuffer(resolution);
+        }
+
         public Scene(Device device, DeviceContext context, RenderForm window, Size resolution)
         {
             model = new Model(device, "sibenik");
@@ -247,13 +259,6 @@ namespace Sample
         public bool isKeyPressed(Key key)
         {
             return keyboard.GetCurrentState().PressedKeys.Contains(key);
-        }
-
-        private void ChangeResolution(RenderTargetView renderTargetView, Size resolution)
-        {
-            //device.ImmediateContext.ClearRenderTargetView(renderTargetView, Color4.Black);
-
-            Program.DisplayResolution = resolution;
         }
 
         public void Render(RenderTargetView renderTargetView, DeviceContext context)
