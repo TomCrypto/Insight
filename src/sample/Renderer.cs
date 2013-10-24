@@ -166,6 +166,16 @@ namespace Sample
             }
         }
 
+        private void RotationChange(object sender, Variable variable)
+        {
+            Settings.rotationSensitivity = (float)((Double)variable.Value);
+        }
+
+        private void MovementChange(object sender, Variable variable)
+        {
+            Settings.movementSensitivity = (float)((Double)variable.Value);
+        }
+
         /// <summary>
         /// Initializes our TweakBar.
         /// </summary>
@@ -177,12 +187,18 @@ namespace Sample
                 tweakBar = new TweakBar(window, "Configuration Options");
 
                 tweakBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
-                tweakBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.2, 0.005, 3, "Exposure level at which to render the scene.");
+                tweakBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.015, 0.005, 3, "Exposure level at which to render the scene.");
                 tweakBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
                 tweakBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality + 1, 1, "The quality of the diffraction effects (from 1 to 4).");
-                tweakBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 32, 1.5, 0.05, 2, "The f-number at which to model the aperture.");
+                tweakBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to model the aperture.");
+
+                tweakBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.05, 2, "The sensitivity of mouse rotation.");
+                tweakBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.05, 2, "The sensitivity of keyboard movement.");
 
                 tweakBar["quality"].VariableChange += QualityChange;
+
+                tweakBar["rotation_sensitivity"].VariableChange += RotationChange;
+                tweakBar["movement_sensitivity"].VariableChange += MovementChange;
 
                 // put options here
             }

@@ -132,7 +132,7 @@ namespace Sample
 
         private Size resolution;
 
-        private Model model, skydome, ground;
+        private Model model, skydome, ground, house;
 
         public Scene(Device device, DeviceContext context, RenderForm window, Size resolution)
         {
@@ -144,6 +144,11 @@ namespace Sample
 
             ground = new Model(device, "ground");
             ground.Translation = new Vector3(0, -15.35f, 0);
+
+            house = new Model(device, "house");
+            house.Translation = new Vector3(-35, -15.35f, 10);
+            house.Rotation = new Vector3(-1.5f, 0, 0);
+            house.Scale *= 0.01f;
 
             this.device = device;
             this.window = window;
@@ -195,10 +200,6 @@ namespace Sample
                 DepthComparison = Comparison.Less
             });
 
-            depthStencilState.DebugName = "Scene DSS";
-
-            //SharpDX.Diagnostics.ObjectTracker.Track(depthStencilState);
-
             depthBuffer = new Texture2D(device, new Texture2DDescription
             {
                 ArraySize = 1,
@@ -223,7 +224,6 @@ namespace Sample
             keyboard = new Keyboard(directInput);
             keyboard.SetCooperativeLevel(window.Handle, CooperativeLevel.NonExclusive | CooperativeLevel.Background);
             keyboard.Acquire();
-            mousePoint = new Point(window.Left + window.Width / 2, window.Top + window.Height / 2);
         }
 
         /// <summary> Creates the camera. </summary>
@@ -261,15 +261,6 @@ namespace Sample
             /* Acquire user input, also clamp the up/down rotation term. */
             camera.MoveCamera(AcquireKeyboardInput());
 
-            if (keyboard.GetCurrentState().PressedKeys.Contains(Key.Escape)) window.Close();
-
-            if (keyboard.GetCurrentState().PressedKeys.Contains(Key.P)) this.ChangeResolution(renderTargetView, new Size(1024, 1024));
-
-            if (keyboard.GetCurrentState().PressedKeys.Contains(Key.T))
-            {
-                model.Rotation += Vector3.One * 0.1f;
-            }
-
             context.ClearDepthStencilView(depthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
             context.ClearRenderTargetView(renderTargetView, new Color4(0.5f, 0, 1, 1));
 
@@ -282,6 +273,7 @@ namespace Sample
             model.Render(device, context, camera);
             skydome.Render(device, context, camera);
             ground.Render(device, context, camera);
+            house.Render(device, context, camera);
         }
 
         #region IDisposable
@@ -310,6 +302,7 @@ namespace Sample
                 model.Dispose();
                 skydome.Dispose();
                 ground.Dispose();
+                house.Dispose();
 
                 depthStencilState.Dispose();
                 depthStencilView.Dispose();

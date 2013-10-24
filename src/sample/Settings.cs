@@ -37,13 +37,13 @@ namespace Sample
         /// <summary> An include handler for shaders. </summary>
         public static IncludeFX includeFX = new IncludeFX();
 
-        private static Size initialResolution = new Size(1024, 1024);
+        private static Size initialResolution = new Size(1280, 800);
         public static Size InitialResolution { get { return initialResolution; } }
 
         /// <summary> The far plane. </summary>
         static public float farPlane = 700;
         /// <summary> The near plane. </summary>
-        static public float nearPlane = 0.05f;
+        static public float nearPlane = 0.005f;
         /// <summary> The movement sensitivity factor. </summary>
         static public float movementSensitivity = 0.05f;
         /// <summary> The rotation sensitivity factor. </summary>
