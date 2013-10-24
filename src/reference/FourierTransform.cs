@@ -11,6 +11,18 @@ using Buffer = SharpDX.Direct3D11.Buffer;
 
 namespace Insight
 {
+    public struct FFTBuffer
+    {
+        public UnorderedAccessView view;
+        public Buffer buffer;
+
+        public FFTBuffer(Buffer buffer, UnorderedAccessView view)
+        {
+            this.buffer = buffer;
+            this.view = view;
+        }
+    }
+
     /// <summary>
     /// Provides utility methods for the FFT classes.
     /// </summary>
@@ -22,7 +34,7 @@ namespace Insight
         /// <param name="device">The graphics device to use.</param>
         /// <param name="floatCount">The number of floats in the buffer.</param>
         /// <returns>The allocated raw buffer.</returns>
-        public static UnorderedAccessView AllocateBuffer(Device device, int floatCount)
+        public static FFTBuffer AllocateBuffer(Device device, int floatCount)
         {
             Buffer buffer = new Buffer(device, new BufferDescription()
             {
@@ -34,7 +46,7 @@ namespace Insight
                 Usage = ResourceUsage.Default
             });
 
-            return new UnorderedAccessView(device, buffer, new UnorderedAccessViewDescription()
+            UnorderedAccessView view = new UnorderedAccessView(device, buffer, new UnorderedAccessViewDescription()
             {
                 Format = SharpDX.DXGI.Format.R32_Typeless,
                 Dimension = UnorderedAccessViewDimension.Buffer,
@@ -46,6 +58,8 @@ namespace Insight
                     Flags = UnorderedAccessViewBufferFlags.Raw,
                 }
             });
+
+            return new FFTBuffer(buffer, view);
         }
     }
 
@@ -55,9 +69,9 @@ namespace Insight
     public class DiffractionEngine : IDisposable
     {
         private GraphicsResource transform, spectrum;
-        private UnorderedAccessView[] temporaries;
-        private UnorderedAccessView[] precomputed;
-        private UnorderedAccessView buffer;
+        private FFTBuffer[] temporaries;
+        private FFTBuffer[] precomputed;
+        private FFTBuffer buffer;
         private FastFourierTransform fft;
         private Size resolution;
 
@@ -66,15 +80,15 @@ namespace Insight
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
         /// <param name="resolution">The diffraction resolution.</param>
-        public DiffractionEngine(Device device, Size resolution)
+        public DiffractionEngine(Device device, DeviceContext context, Size resolution)
         {
-            fft = FastFourierTransform.Create2DComplex(device.ImmediateContext, resolution.Width, resolution.Height);
+            fft = FastFourierTransform.Create2DComplex(context, resolution.Width, resolution.Height);
             fft.ForwardScale = 1.0f / (float)(resolution.Width * resolution.Height);
             this.resolution = resolution;
 
             FastFourierTransformBufferRequirements bufferReqs = fft.BufferRequirements;
-            precomputed = new UnorderedAccessView[bufferReqs.PrecomputeBufferCount];
-            temporaries = new UnorderedAccessView[bufferReqs.TemporaryBufferCount];
+            precomputed = new FFTBuffer[bufferReqs.PrecomputeBufferCount];
+            temporaries = new FFTBuffer[bufferReqs.TemporaryBufferCount];
 
             for (int t = 0; t < precomputed.Length; ++t)
                 precomputed[t] = FFTUtils.AllocateBuffer(device, bufferReqs.PrecomputeBufferSizes[t]);
@@ -82,7 +96,13 @@ namespace Insight
             for (int t = 0; t < temporaries.Length; ++t)
                 temporaries[t] = FFTUtils.AllocateBuffer(device, bufferReqs.TemporaryBufferSizes[t]);
 
-            fft.AttachBuffersAndPrecompute(temporaries, precomputed);
+            UnorderedAccessView[] precomputedUAV = new UnorderedAccessView[bufferReqs.PrecomputeBufferCount];
+            for (int t = 0; t < precomputed.Length; ++t) precomputedUAV[t] = precomputed[t].view;
+
+            UnorderedAccessView[] temporariesUAV = new UnorderedAccessView[bufferReqs.TemporaryBufferCount];
+            for (int t = 0; t < temporaries.Length; ++t) temporariesUAV[t] = temporaries[t].view;
+
+            fft.AttachBuffersAndPrecompute(temporariesUAV, precomputedUAV);
 
             /* We are doing a complex to complex transform, so we need two floats per pixel. */
             buffer = FFTUtils.AllocateBuffer(device, 2 * resolution.Width * resolution.Height);
@@ -100,16 +120,16 @@ namespace Insight
         /// <param name="pass">A SurfacePass instance.</param>
         /// <param name="destination">The destination render target view.</param>
         /// <param name="source">The source texture, can be the same resource as the render target.</param>
-        /// <param name="zDistance">The distance at which to evaluate the aperture transmission function.</param>
-        public void Diffract(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView source, double zDistance)
+        /// <param name="fNumber">The distance at which to evaluate the aperture transmission function.</param>
+        public void Diffract(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView source, double fNumber)
         {
             if (source.Description.Dimension != ShaderResourceViewDimension.Texture2D)
                 throw new ArgumentException("Source SRV must point to a Texture2D resource of suitable dimensions.");
 
-            if (new Size(source.ResourceAs<Texture2D>().Description.Width, source.ResourceAs<Texture2D>().Description.Height) != resolution)
-                throw new ArgumentException("Source texture must be the same dimensions as diffraction resolution.");
+            //if (new Size(source.ResourceAs<Texture2D>().Description.Width, source.ResourceAs<Texture2D>().Description.Height) != resolution)
+            //    throw new ArgumentException("Source texture must be the same dimensions as diffraction resolution.");
 
-            pass.Pass(device, @"                                                                                       /* 1. Transcode source texture into input FFT buffer. */
+            pass.Pass(device, context, @"                                                                                       /* 1. Transcode source texture into input FFT buffer. */
             Texture2D<float>    gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -133,14 +153,16 @@ namespace Insight
 
 	            return 0;
             }
-            ", new ViewportF(0, 0, resolution.Width, resolution.Height), null, new[] { source }, new[] { buffer }, null);
+            ", new ViewportF(0, 0, resolution.Width, resolution.Height), null, new[] { source }, new[] { buffer.view }, null);
 
             DataStream cbuffer = new DataStream(8, true, true);
             cbuffer.Write<uint>((uint)resolution.Width);
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"                                                                                       /* 2. Transcode output FFT buffer into transform texture. */
+            UnorderedAccessView fftView = fft.ForwardTransform(buffer.view);
+
+            pass.Pass(device, context, @"                                                                                       /* 2. Transcode output FFT buffer into transform texture. */
             RWByteAddressBuffer buffer : register(u1);
 
             cbuffer constants : register(b0)
@@ -163,15 +185,16 @@ namespace Insight
                 float2 value = asfloat(buffer.Load2(index));
 	            return pow(value.x, 2) + pow(value.y, 2);
             }
-            ", transform.RTV, null, new[] { fft.ForwardTransform(buffer) }, cbuffer);
+            ", new ViewportF(0, 0, transform.Dimensions.Width, transform.Dimensions.Height), transform.RTV, null, new[] { fftView }, cbuffer);
 
+            fftView.Dispose();
             cbuffer.Dispose();
 
             cbuffer = new DataStream(4, true, true);
-            cbuffer.Write<float>((float)zDistance);
+            cbuffer.Write<float>((float)fNumber);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
+            pass.Pass(device, context, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
             Texture2D<float> transform : register(t0);
 
             SamplerState texSampler
@@ -293,12 +316,22 @@ namespace Insight
 
                 return color / SPECTRAL_SAMPLES;
             }
-            ", spectrum.RTV, new[] { transform.SRV }, cbuffer);
+            ", spectrum.Dimensions, spectrum.RTV, new[] { transform.SRV }, cbuffer);
 
-            device.ImmediateContext.GenerateMips(spectrum.SRV);
+            context.GenerateMips(spectrum.SRV);
 
-            pass.Pass(device, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
+            cbuffer.Dispose();
+            cbuffer = new DataStream(4, true, true);
+            cbuffer.Write<float>((float)fNumber);
+            cbuffer.Position = 0;
+
+            pass.Pass(device, context, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
             Texture2D<float3> spectrum : register(t0);
+
+            cbuffer constants : register(b0)
+            {
+                float z; // observation plane distance
+            }
 
             struct PS_IN
             {
@@ -317,9 +350,11 @@ namespace Insight
                 uint y = uint(input.tex.y * h);
 
                 float3 norm = spectrum.Load(int3(0, 0, maxMips - 1)) * (w * h);
-                return max(0, spectrum.Load(int3(x, y, 0)) / norm - threshold);
+                return max(0, spectrum.Load(int3(x, y, 0)) / norm - threshold) * pow(z, -4);
             }
-            ", destination, new[] { spectrum.SRV }, null);
+            ", renderSize, destination, new[] { spectrum.SRV }, cbuffer);
+
+            cbuffer.Dispose();
         }
 
         #region IDisposable
@@ -345,23 +380,24 @@ namespace Insight
         {
             if (disposing)
             {
-                foreach (UnorderedAccessView view in precomputed)
+                foreach (FFTBuffer buf in precomputed)
                 {
-                    view.Resource.Dispose();
-                    view.Dispose();
+                    buf.view.Dispose();
+                    buf.buffer.Dispose();
                 }
 
-                foreach (UnorderedAccessView view in temporaries)
+                foreach (FFTBuffer buf in temporaries)
                 {
-                    view.Resource.Dispose();
-                    view.Dispose();
+                    buf.view.Dispose();
+                    buf.buffer.Dispose();
                 }
 
-                buffer.Resource.Dispose();
-                buffer.Dispose();
+                buffer.view.Dispose();
+                buffer.buffer.Dispose();
 
                 transform.Dispose();
                 spectrum.Dispose();
+
                 fft.Dispose();
             }
         }
@@ -374,9 +410,9 @@ namespace Insight
     /// </summary>
     public class ConvolutionEngine : IDisposable
     {
-        private UnorderedAccessView lBuf, rBuf, tBuf;
-        private UnorderedAccessView[] temporaries;
-        private UnorderedAccessView[] precomputed;
+        private FFTBuffer lBuf, rBuf, tBuf;
+        private FFTBuffer[] temporaries;
+        private FFTBuffer[] precomputed;
         private GraphicsResource rConvolved;
         private GraphicsResource gConvolved;
         private GraphicsResource bConvolved;
@@ -396,8 +432,8 @@ namespace Insight
             this.resolution = resolution;
 
             FastFourierTransformBufferRequirements bufferReqs = fft.BufferRequirements;
-            precomputed = new UnorderedAccessView[bufferReqs.PrecomputeBufferCount];
-            temporaries = new UnorderedAccessView[bufferReqs.TemporaryBufferCount];
+            precomputed = new FFTBuffer[bufferReqs.PrecomputeBufferCount];
+            temporaries = new FFTBuffer[bufferReqs.TemporaryBufferCount];
 
             for (int t = 0; t < precomputed.Length; ++t)
                 precomputed[t] = FFTUtils.AllocateBuffer(device, bufferReqs.PrecomputeBufferSizes[t]);
@@ -405,7 +441,13 @@ namespace Insight
             for (int t = 0; t < temporaries.Length; ++t)
                 temporaries[t] = FFTUtils.AllocateBuffer(device, bufferReqs.TemporaryBufferSizes[t]);
 
-            fft.AttachBuffersAndPrecompute(temporaries, precomputed);
+            UnorderedAccessView[] precomputedUAV = new UnorderedAccessView[bufferReqs.PrecomputeBufferCount];
+            for (int t = 0; t < precomputed.Length; ++t) precomputedUAV[t] = precomputed[t].view;
+
+            UnorderedAccessView[] temporariesUAV = new UnorderedAccessView[bufferReqs.TemporaryBufferCount];
+            for (int t = 0; t < temporaries.Length; ++t) temporariesUAV[t] = temporaries[t].view;
+
+            fft.AttachBuffersAndPrecompute(temporariesUAV, precomputedUAV);
 
             lBuf = FFTUtils.AllocateBuffer(device, 2 * resolution.Width * resolution.Height);
             rBuf = FFTUtils.AllocateBuffer(device, 2 * resolution.Width * resolution.Height);
@@ -417,9 +459,9 @@ namespace Insight
             staging    = new GraphicsResource(device, new Size(resolution.Width / 2, resolution.Height / 2), Format.R32G32B32A32_Float, true, true);
         }
 
-        public void Convolve(Device device, SurfacePass pass, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
+        public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
         {
-            pass.Pass(device, @"
+            pass.Pass(device, context, @"
             Texture2D<float3> gTex : register(u1);
 
             SamplerState texSampler
@@ -440,13 +482,13 @@ namespace Insight
             {
 	            return gTex.Sample(texSampler, input.tex);
             }
-            ", staging.RTV, new[] { b }, null);
+            ", staging.Dimensions, staging.RTV, new[] { b }, null);
 
-            ConvolveChannel(device, pass, a, staging.SRV, rConvolved, "x");
-            ConvolveChannel(device, pass, a, staging.SRV, gConvolved, "y");
-            ConvolveChannel(device, pass, a, staging.SRV, bConvolved, "z");
+            ConvolveChannel(device, context, pass, a, staging.SRV, rConvolved, "x");
+            ConvolveChannel(device, context, pass, a, staging.SRV, gConvolved, "y");
+            ConvolveChannel(device, context, pass, a, staging.SRV, bConvolved, "z");
 
-            pass.Pass(device, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
+            pass.Pass(device, context, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
             Texture2D<float> rTex : register(t0);
             Texture2D<float> gTex : register(t1);
             Texture2D<float> bTex : register(t2);
@@ -489,10 +531,10 @@ namespace Insight
 
                 return float3(r, g, b) + tex.Sample(texSampler, input.tex);
             }
-            ", destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
+            ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
         }
 
-        private void ZeroPad(Device device, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel, bool sub)
+        private void ZeroPad(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel, bool sub)
         {
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
@@ -503,7 +545,7 @@ namespace Insight
 
             if (sub)
             {
-                pass.Pass(device, @"
+                pass.Pass(device, context, @"
             Texture2D<float3>   gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -534,7 +576,7 @@ namespace Insight
             }
             else
             {
-                pass.Pass(device, @"
+                pass.Pass(device, context, @"
             Texture2D<float3>   gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -566,24 +608,24 @@ namespace Insight
             cbuffer.Dispose();
         }
 
-        private void ConvolveChannel(Device device, SurfacePass pass, ShaderResourceView sourceA, ShaderResourceView sourceB, GraphicsResource target, String channel)
+        private void ConvolveChannel(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView sourceA, ShaderResourceView sourceB, GraphicsResource target, String channel)
         {
             if ((channel != "x") && (channel != "y") && (channel != "z")) throw new ArgumentException("Invalid RGB channel specified.");
 
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
-            ZeroPad(device, pass, sourceA, lBuf, channel, true);
-            ZeroPad(device, pass, sourceB, rBuf, channel, false);
+            ZeroPad(device, context, pass, sourceA, lBuf.view, channel, true);
+            ZeroPad(device, context, pass, sourceB, rBuf.view, channel, false);
 
-            fft.ForwardTransform(lBuf, tBuf);
-            fft.ForwardTransform(rBuf, lBuf);
+            fft.ForwardTransform(lBuf.view, tBuf.view);
+            fft.ForwardTransform(rBuf.view, lBuf.view);
 
             DataStream cbuffer = new DataStream(8, true, true);
             cbuffer.Write<uint>((uint)resolution.Width);
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"                                                                                       /* 3. Pointwise multiply FFT(A) and FFT(B). */
+            pass.Pass(device, context, @"                                                                                       /* 3. Pointwise multiply FFT(A) and FFT(B). */
             RWByteAddressBuffer bufA : register(u1);
             RWByteAddressBuffer bufB : register(u2);
 
@@ -617,7 +659,7 @@ namespace Insight
 
                 return 0;
             }
-            ", viewport, null, null, new[] { tBuf, lBuf }, cbuffer);
+            ", viewport, null, null, new[] { tBuf.view, lBuf.view }, cbuffer);
 
             cbuffer.Dispose();
 
@@ -626,7 +668,9 @@ namespace Insight
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, @"                                                                                       /* 4. Transcode IFFT(FFT(A) · FFT(B)) to texture. */
+            UnorderedAccessView fftView = fft.InverseTransform(tBuf.view);
+
+            pass.Pass(device, context, @"                                                                                       /* 4. Transcode IFFT(FFT(A) · FFT(B)) to texture. */
             RWByteAddressBuffer buf : register(u1);
 
             cbuffer constants : register(b0)
@@ -649,8 +693,9 @@ namespace Insight
                 float2 c = asfloat(buf.Load2(index));
                 return sqrt(pow(c.x, 2) + pow(c.y, 2));
             }
-            ", target.RTV, null, new[] { fft.InverseTransform(tBuf) }, cbuffer);
+            ", target.Dimensions, target.RTV, null, new[] { fftView }, cbuffer);
 
+            fftView.Dispose();
             cbuffer.Dispose();
         }
 
@@ -677,25 +722,28 @@ namespace Insight
         {
             if (disposing)
             {
-                foreach (UnorderedAccessView view in precomputed)
+                foreach (FFTBuffer buf in precomputed)
                 {
-                    view.Resource.Dispose();
-                    view.Dispose();
+                    buf.view.Dispose();
+                    buf.buffer.Dispose();
                 }
 
-                foreach (UnorderedAccessView view in temporaries)
+                foreach (FFTBuffer buf in temporaries)
                 {
-                    view.Resource.Dispose();
-                    view.Dispose();
+                    buf.view.Dispose();
+                    buf.buffer.Dispose();
                 }
 
                 rConvolved.Dispose();
                 gConvolved.Dispose();
                 bConvolved.Dispose();
                 staging.Dispose();
-                lBuf.Dispose();
-                rBuf.Dispose();
-                tBuf.Dispose();
+                lBuf.view.Dispose();
+                rBuf.view.Dispose();
+                tBuf.view.Dispose();
+                lBuf.buffer.Dispose();
+                rBuf.buffer.Dispose();
+                tBuf.buffer.Dispose();
                 fft.Dispose();
             }
         }

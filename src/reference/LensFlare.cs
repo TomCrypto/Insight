@@ -65,6 +65,11 @@ namespace Insight
         public Device Device { get; private set; }
 
         /// <summary>
+        /// The graphics context used by this LensFlare instance.
+        /// </summary>
+        public DeviceContext Context { get; private set; }
+
+        /// <summary>
         /// A SurfacePass instance. You can use it if needed to save resources.
         /// </summary>
         public SurfacePass Pass { get; private set; }
@@ -97,13 +102,15 @@ namespace Insight
                 if (diffraction != null) diffraction.Dispose();
                 if (convolution != null) convolution.Dispose();
 
-                diffraction = new DiffractionEngine(Device, DiffractionSize(value));
+                diffraction = new DiffractionEngine(Device, Context, DiffractionSize(value));
                 convolution = new ConvolutionEngine(Device, ConvolutionSize(value));
 
                 aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
                 spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
 
                 quality = value;
+
+                LoadAperture("aperture" + (DiffractionSize(quality).Width) + ".png");
             }
         }
 
@@ -132,19 +139,23 @@ namespace Insight
         /// <param name="device">The graphics device to use.</param>
         /// <param name="quality">The required render quality.</param>
         /// <param name="profile">The desired optical profile.</param>
-        public LensFlare(Device device, RenderQuality quality, OpticalProfile profile)
+        public LensFlare(Device device, DeviceContext context, RenderQuality quality, OpticalProfile profile)
         {
-            Device = device;            /* Store the device. */
-            Quality = quality;          /* Validate quality. */
-            Profile = profile;          /* Use lens profile. */
-
             Pass = new SurfacePass(device);
 
-            // by default, just load the aperture from a default image (change this later)
-            Resource defaultAperture = Texture2D.FromFile(device, "aperture.png");
-            ShaderResourceView view = new ShaderResourceView(device, defaultAperture);
+            Device = device;            /* Store the device. */
+            Context = context;          /* Save the context. */
+            Quality = quality;          /* Validate quality. */
+            Profile = profile;          /* Use lens profile. */
+        }
 
-            Pass.Pass(device, @"
+        private void LoadAperture(String path)
+        {
+            // by default, just load the aperture from a default image (change this later)
+            Resource defaultAperture = Texture2D.FromFile(Device, path);
+            ShaderResourceView view = new ShaderResourceView(Device, defaultAperture);
+
+            Pass.Pass(Device, Context, @"
             texture2D source                : register(t0);
 
             SamplerState texSampler
@@ -165,7 +176,7 @@ namespace Insight
             {
                 return source.Sample(texSampler, input.tex).xyz;
             }
-            ", aperture.RTV, new[] { view }, null);
+            ", aperture.Dimensions, aperture.RTV, new[] { view }, null);
 
             view.Dispose();
             defaultAperture.Dispose();
@@ -178,15 +189,15 @@ namespace Insight
         /// <param name="target">The render target to which to render the output.</param>
         /// <param name="source">The source texture to add diffraction effects to.</param>
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
-        public void Render(RenderTargetView target, ShaderResourceView source, double dt = 0)
+        public void Render(Size renderSize, RenderTargetView target, ShaderResourceView source, double fNumber, double dt = 0)
         {
             // TODO here generate aperture
 
             Time += dt;
 
-            diffraction.Diffract(Device, Pass, spectrum.RTV, aperture.SRV, 1);
+            diffraction.Diffract(Device, Context, Pass, spectrum.Dimensions, spectrum.RTV, aperture.SRV, fNumber);
 
-            convolution.Convolve(Device, Pass, target, spectrum.SRV, source);
+            convolution.Convolve(Device, Context, Pass, renderSize, target, spectrum.SRV, source);
         }
 
         #region IDisposable

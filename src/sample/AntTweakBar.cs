@@ -35,83 +35,108 @@ namespace Sample
     }
 
     /// <summary>
+    /// A generic bar variable.
+    /// </summary>
+    public abstract class Variable : IDisposable
+    {
+        protected readonly IntPtr bar;
+        protected readonly String identifier;
+
+        /// <summary>
+        /// Gets this variable's identifier.
+        /// </summary>
+        public String Identifier { get { return identifier; } }
+
+        /// <summary>
+        /// Gets the bar handle of the bar this variable belongs to.
+        /// </summary>
+        public IntPtr BarHandle { get { return bar; } }
+
+        /* Must maintain strong references to callbacks. */
+        protected AntTweakBar.TwGetVarCallback getCallback;
+        protected AntTweakBar.TwSetVarCallback setCallback;
+
+        /// <summary>
+        /// Called when the variable is changed by the user.
+        /// </summary>
+        public event EventHandler<Variable> VariableChange;
+
+        /// <summary>
+        /// Creates a new variable.
+        /// </summary>
+        /// <param name="bar">The bar handle.</param>
+        /// <param name="name">The variable identifier.</param>
+        public Variable(IntPtr bar, String identifier)
+        {
+            this.bar = bar;
+            this.identifier = identifier;
+
+            getCallback = GetCallback;
+            setCallback = ShadowSetCallback;
+        }
+
+        /// <summary>
+        /// Intercepts the variable change and fires the event before
+        /// forwarding the callback to the derived class's method.
+        /// </summary>
+        private void ShadowSetCallback(IntPtr value, IntPtr clientData)
+        {
+            SetCallback(value, clientData);
+            if (VariableChange != null)
+            {
+                VariableChange(this, this);
+            }
+        }
+
+        protected abstract void SetCallback(IntPtr value, IntPtr clientData);
+
+        protected abstract void GetCallback(IntPtr value, IntPtr clientData);
+
+        /// <summary>
+        /// Gets or sets the value of this variable.
+        /// </summary>
+        public abstract Object Value
+        {
+            get;
+            set;
+        }
+
+        #region IDisposable
+
+        /// <summary>
+        /// Destroys this Variable instance.
+        /// </summary>
+        ~Variable()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
+        /// Disposes of this variable.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                AntTweakBar.TwRemoveVar(bar, identifier);
+            }
+        }
+
+        #endregion
+    }
+
+    /// <summary>
     /// Wrapper around a single tweak bar for DirectX 11 with SharpDX. Note
     /// it does not do full error checking, only upon bar creation.
     /// </summary>
     public class TweakBar : IDisposable
     {
-        #region Variable
-
-        /// <summary>
-        /// A generic bar variable.
-        /// </summary>
-        private abstract class Variable : IDisposable
-        {
-            protected readonly IntPtr bar;
-            protected readonly String identifier;
-
-            /* Must maintain strong references to callbacks. */
-            protected AntTweakBar.TwGetVarCallback getCallback;
-            protected AntTweakBar.TwSetVarCallback setCallback;
-
-            /// <summary>
-            /// Creates a new variable.
-            /// </summary>
-            /// <param name="bar">The bar handle.</param>
-            /// <param name="name">The variable identifier.</param>
-            public Variable(IntPtr bar, String identifier)
-            {
-                this.bar  = bar;
-                this.identifier = identifier;
-
-                getCallback = GetCallback;
-                setCallback = SetCallback;
-            }
-
-            protected abstract void SetCallback(IntPtr value, IntPtr clientData);
-            protected abstract void GetCallback(IntPtr value, IntPtr clientData);
-
-            /// <summary>
-            /// Gets or sets the value of this variable.
-            /// </summary>
-            public abstract Object Value
-            {
-                get;
-                set;
-            }
-
-            #region IDisposable
-
-            /// <summary>
-            /// Destroys this Variable instance.
-            /// </summary>
-            ~Variable()
-            {
-                Dispose(false);
-            }
-
-            /// <summary>
-            /// Disposes of this variable.
-            /// </summary>
-            public void Dispose()
-            {
-                Dispose(true);
-                GC.SuppressFinalize(this);
-            }
-
-            private void Dispose(bool disposing)
-            {
-                if (disposing)
-                {
-                    AntTweakBar.TwRemoveVar(bar, identifier);
-                }
-            }
-
-            #endregion
-        }
-
-        #endregion
-
         #region IntegerVariable
 
         /// <summary>
@@ -519,13 +544,15 @@ namespace Sample
             variables.Remove(identifier);
         }
 
+#if false
+
         /// <summary>
         /// Gets or sets the value of a bar variable. You are expected to
         /// know the type of the variable you are querying. This property
         /// will throw an exception if you set an invalid variable type.
         /// </summary>
         /// <param name="name">Identifier of the variable.</param>
-        /// <returns></returns>
+        /// <returns>The (untyped) value of the variable.</returns>
         public Object this[String identifier]
         {
             get
@@ -542,6 +569,18 @@ namespace Sample
                     throw new ArgumentException("No such variable.");
 
                 variables[identifier].Value = value;
+            }
+        }
+#endif
+
+        public Variable this[String identifier]
+        {
+            get
+            {
+                if (!variables.ContainsKey(identifier))
+                    throw new ArgumentException("No such variable.");
+
+                return variables[identifier];
             }
         }
         

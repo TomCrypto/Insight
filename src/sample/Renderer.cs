@@ -66,6 +66,8 @@ namespace Sample
 
         private RenderForm window;
 
+        private DeviceContext context;
+
         /// <summary>
         /// Called when the window is resized.
         /// </summary>
@@ -88,7 +90,7 @@ namespace Sample
 
             Device.CreateWithSwapChain(DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 2,
+                BufferCount = 3,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -98,14 +100,23 @@ namespace Sample
                 ModeDescription = new ModeDescription()
                 {
                     Format = Format.R8G8B8A8_UNorm,
-                    Width = window.ClientSize.Width,
-                    Height = window.ClientSize.Height,
+                    Width = 0,//window.ClientSize.Width,
+                    Height = 0,//window.ClientSize.Height,
                     RefreshRate = new Rational(60, 1),
                     Scaling = DisplayModeScaling.Centered,
                     ScanlineOrdering = DisplayModeScanlineOrder.Progressive
                 }
             }, out device, out swapChain);
+
+            context = device.ImmediateContext;
+
+            factory = swapChain.GetParent<Factory>();
+            factory.MakeWindowAssociation(window.Handle, WindowAssociationFlags.IgnoreAll);
         }
+
+        private Factory factory;
+
+        private GraphicsResource resolved;
 
         /// <summary>
         /// Initializes the graphics resources. Also
@@ -113,12 +124,46 @@ namespace Sample
         /// </summary>
         private void InitializeResources()
         {
+            resolved     = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
             temporary    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
             intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            hdrBuffer    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            ldrBuffer    = new GraphicsResource(swapChain.GetBackBuffer<Texture2D>(0));
-            device.ImmediateContext.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
+            //hdrBuffer    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+
+            ldrBuffer    = new GraphicsResource(device, swapChain.GetBackBuffer<Texture2D>(0));
+
+            context.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
             swapChain.Present(0, PresentFlags.None);
+
+            hdrBuffer = new GraphicsResource(device, new Texture2D(device, new Texture2DDescription()
+            {
+                ArraySize = 1,
+                BindFlags = BindFlags.RenderTarget | BindFlags.ShaderResource,
+                CpuAccessFlags = CpuAccessFlags.None,
+                Format = Format.R32G32B32A32_Float,
+                Height = window.ClientSize.Height,
+                MipLevels = 1,
+                OptionFlags = ResourceOptionFlags.None,
+                SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Default,
+                Width = window.ClientSize.Width
+            }));
+        }
+
+        /// <summary>
+        /// Called when the user changes the diffraction quality.
+        /// </summary>
+        private void QualityChange(object sender, Variable variable)
+        {
+            RenderQuality newQuality = (RenderQuality)((int)variable.Value - 1);
+
+            if (Settings.quality != newQuality)
+            {
+                Settings.quality = newQuality;
+
+                if (lensFlare != null) lensFlare.Dispose();
+
+                lensFlare = new LensFlare(device, context, Settings.quality, new OpticalProfile());
+            }
         }
 
         /// <summary>
@@ -133,7 +178,11 @@ namespace Sample
 
                 tweakBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
                 tweakBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.2, 0.005, 3, "Exposure level at which to render the scene.");
-                tweakBar.AddBoolean("diffraction", "Diffraction", "General", "Yes", "No", true, "Whether to display diffraction effects or not.");
+                tweakBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
+                tweakBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality + 1, 1, "The quality of the diffraction effects (from 1 to 4).");
+                tweakBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 32, 1.5, 0.05, 2, "The f-number at which to model the aperture.");
+
+                tweakBar["quality"].VariableChange += QualityChange;
 
                 // put options here
             }
@@ -146,7 +195,7 @@ namespace Sample
         {
             // put config here
 
-            lensFlare = new LensFlare(device, RenderQuality.Medium, new OpticalProfile());
+            lensFlare = new LensFlare(device, context, Settings.quality, new OpticalProfile());
         }
 
         /// <summary>
@@ -154,7 +203,7 @@ namespace Sample
         /// </summary>
         private void InitializeScene()
         {
-            scene = new Scene(device, window, window.ClientSize);
+            scene = new Scene(device, context, window, window.ClientSize);
         }
 
         public Renderer(RenderForm window)
@@ -177,9 +226,12 @@ namespace Sample
         {
             RenderScene();
 
-            if ((Boolean)tweakBar["diffraction"]) RenderLensFlares();
+            context.ResolveSubresource(hdrBuffer.Resource, 0, resolved.Resource, 0, Format.R32G32B32A32_Float);
 
-            Tonemap((Double)tweakBar["exposure"], (Double)tweakBar["gamma"]);
+            if ((Boolean)tweakBar["diffraction"].Value) RenderLensFlares();
+            else context.CopyResource(resolved.Resource, intermediate.Resource);
+
+            Tonemap((Double)tweakBar["exposure"].Value, (Double)tweakBar["gamma"].Value);
 
             TweakBar.Render();
 
@@ -191,7 +243,7 @@ namespace Sample
         /// </summary>
         private void RenderScene()
         {
-            scene.Render(hdrBuffer.RTV);
+            scene.Render(hdrBuffer.RTV, context);
         }
 
         /// <summary>
@@ -199,10 +251,8 @@ namespace Sample
         /// </summary>
         private void RenderLensFlares()
         {
-            device.ImmediateContext.CopyResource(hdrBuffer.Resource, intermediate.Resource);
-
             double frameTime = (double)timer.ElapsedTicks / (double)Stopwatch.Frequency;
-            lensFlare.Render(hdrBuffer.RTV, intermediate.SRV, frameTime - lastFrameTime);
+            lensFlare.Render(intermediate.Dimensions, intermediate.RTV, resolved.SRV, ((Double)tweakBar["fnumber"].Value), frameTime - lastFrameTime);
             lastFrameTime = frameTime;
         }
 
@@ -212,7 +262,7 @@ namespace Sample
         /// </summary>
         private void Tonemap(double exposure, double gamma)
         {
-            lensFlare.Pass.Pass(device, @"
+            lensFlare.Pass.Pass(device, context, @"
             texture2D source             : register(t0);
 
             struct PS_IN
@@ -238,16 +288,16 @@ namespace Sample
 
                 return float4(rgb, log(luminance(rgb) + 1e-6f));
             }
-            ", temporary.RTV, new[] { hdrBuffer.SRV }, null);
+            ", temporary.Dimensions, temporary.RTV, new[] { intermediate.SRV }, null);
 
-            device.ImmediateContext.GenerateMips(temporary.SRV);
+            context.GenerateMips(temporary.SRV);
 
             DataStream cbuffer = new DataStream(8, true, true);
             cbuffer.Write<float>((float)exposure);
             cbuffer.Write<float>(1.0f / (float)gamma);
             cbuffer.Position = 0;
 
-            lensFlare.Pass.Pass(device, @"
+            lensFlare.Pass.Pass(device, context, @"
             texture2D source             : register(t0);
 
             cbuffer constants : register(b0)
@@ -285,7 +335,7 @@ namespace Sample
 
                 return float4(pow(rgb, invGamma), 1);
             }
-            ", ldrBuffer.RTV, new[] { temporary.SRV }, cbuffer);
+            ", ldrBuffer.Dimensions, ldrBuffer.RTV, new[] { temporary.SRV }, cbuffer);
 
             cbuffer.Dispose();
         }
@@ -321,16 +371,25 @@ namespace Sample
         {
             if (disposing)
             {
+                lensFlare.Dispose();
                 ldrBuffer.Dispose();
                 hdrBuffer.Dispose();
                 temporary.Dispose();
-                lensFlare.Dispose();
-                swapChain.Dispose();
+                intermediate.Dispose();
+                resolved.Dispose();
                 tweakBar.Dispose();
-                device.Dispose();
-                timer.Stop();
+                scene.Dispose();
 
                 TweakBar.FinalizeLibrary();
+
+                context.ClearState();
+                context.Flush();
+
+                device.Dispose();
+                context.Dispose();
+                swapChain.Dispose();
+                factory.Dispose();
+                timer.Stop();
             }
         }
 

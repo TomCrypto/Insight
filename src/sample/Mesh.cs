@@ -11,7 +11,7 @@ namespace Sample
     /// <summary>
     /// Represents a mesh, with a material and collection of assets.
     /// </summary>
-    class Mesh
+    class Mesh : IDisposable
     {
         /// <summary>
         /// A buffer containing the mesh vertices.
@@ -132,36 +132,69 @@ namespace Sample
         /// <param name="modelToWorld">Model to world matrix.</param>
         /// <param name="camera">The camera from with to render.</param>
         /// <param name="mapCache">A map cache, for texture access.</param>
-        public void Render(Device device, Matrix modelToWorld, Camera camera, MapCache mapCache)
+        public void Render(Device device, DeviceContext context, Matrix modelToWorld, Camera camera, MapCache mapCache)
         {
             {
                 DataStream cameraStream;
-                device.ImmediateContext.MapSubresource(cameraBuffer, MapMode.WriteDiscard, MapFlags.None, out cameraStream);
+                context.MapSubresource(cameraBuffer, MapMode.WriteDiscard, MapFlags.None, out cameraStream);
                 camera.WriteTo(cameraStream);
-                device.ImmediateContext.UnmapSubresource(cameraBuffer, 0);
+                context.UnmapSubresource(cameraBuffer, 0);
                 cameraStream.Dispose();
             }
 
             {
                 DataStream modelStream;
-                device.ImmediateContext.MapSubresource(modelBuffer, MapMode.WriteDiscard, MapFlags.None, out modelStream);
+                context.MapSubresource(modelBuffer, MapMode.WriteDiscard, MapFlags.None, out modelStream);
                 modelStream.Write<Matrix>(Matrix.Transpose(modelToWorld));
-                device.ImmediateContext.UnmapSubresource(modelBuffer, 0);
+                context.UnmapSubresource(modelBuffer, 0);
                 modelStream.Dispose();
             }
 
             ShaderResourceView color = mapCache.Request(device, material.ColorMap);
             ShaderResourceView bump = mapCache.Request(device, material.BumpMap);
 
-            device.ImmediateContext.VertexShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
-            device.ImmediateContext.PixelShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
-            device.ImmediateContext.PixelShader.SetShaderResources(0, new[] { color, bump });
-            device.ImmediateContext.PixelShader.SetSamplers(0, new[] { sampler });
+            context.VertexShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
+            context.PixelShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
+            context.PixelShader.SetShaderResources(0, new[] { color, bump });
+            context.PixelShader.SetSamplers(0, new[] { sampler });
 
-            device.ImmediateContext.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+            context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
-            device.ImmediateContext.InputAssembler.SetVertexBuffers(0, new[] { vertexBuffer });
-            device.ImmediateContext.Draw(vertices.Description.SizeInBytes / vertexBuffer.Stride, 0);
+            context.InputAssembler.SetVertexBuffers(0, new[] { vertexBuffer });
+            context.Draw(vertices.Description.SizeInBytes / vertexBuffer.Stride, 0);
         }
+
+        #region IDisposable
+
+        /// <summary>
+        /// Destroys this Mesh instance.
+        /// </summary>
+        ~Mesh()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
+        /// Disposes of all used resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                vertices.Dispose();
+                materialBuffer.Dispose();
+                cameraBuffer.Dispose();
+                modelBuffer.Dispose();
+                sampler.Dispose();
+            }
+        }
+
+        #endregion
     }
 }

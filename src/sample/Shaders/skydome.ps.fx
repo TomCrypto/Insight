@@ -27,11 +27,11 @@ float3 main(PixelIn input) : SV_Target
 	float h = p.y; // estimated vertical location on skydome
 	float l = p.x;
 
-	float brightness = 60;
+	float brightness = 250;
 
 	float sunSize = 10;
 
-	float sunBrightness = (dot(p, normalize(float3(0.6f, 0.8f, 0.2f))) > 0.9997f) ? 1 : 0;
+	float sunBrightness = (dot(p, normalize(float3(-1.6f, 0.8f, 0.9f))) > 0.9997f) ? 1 : 0;
 
-	return lerp(float3(1, 1, 1), float3(0.7f, 0.7f, 1), h) * brightness + sunBrightness * 3500;
+	return lerp(float3(1, 1, 1), float3(0.7f, 0.7f, 1), h) * brightness + sunBrightness * 10000;
 }

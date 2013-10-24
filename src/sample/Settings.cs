@@ -5,10 +5,15 @@ using System.Drawing;
 using SharpDX;
 using SharpDX.D3DCompiler;
 
+using Insight;
+
 namespace Sample
 {
     /// <summary>
-    /// Contains various application-wide settings.
+    /// Contains various application-wide settings. These are
+    /// set to default, initial values, and may or may not be
+    /// changeable by the sample. They are to be read by the
+    /// renderer upon initialization.
     /// </summary>
     static class Settings
     {
@@ -32,15 +37,15 @@ namespace Sample
         /// <summary> An include handler for shaders. </summary>
         public static IncludeFX includeFX = new IncludeFX();
 
-        private static Size initialResolution = new Size(1280, 800);
+        private static Size initialResolution = new Size(1024, 1024);
         public static Size InitialResolution { get { return initialResolution; } }
 
         /// <summary> The far plane. </summary>
-        static public float farPlane = 100000;
+        static public float farPlane = 700;
         /// <summary> The near plane. </summary>
-        static public float nearPlane = 0.1f;
+        static public float nearPlane = 0.05f;
         /// <summary> The movement sensitivity factor. </summary>
-        static public float movementSensitivity = 0.3f;
+        static public float movementSensitivity = 0.05f;
         /// <summary> The rotation sensitivity factor. </summary>
         static public float rotationSensitivity = 0.9f;
         /// <summary> The initial camera position.</summary>
@@ -56,5 +61,7 @@ namespace Sample
         public static string ModelExt = ".obj";
         public static string MaterialExt = ".mtl";
         public static string TextureExt = ".png";
+
+        public static RenderQuality quality = RenderQuality.Medium;
     }
 }

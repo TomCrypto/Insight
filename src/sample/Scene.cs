@@ -109,7 +109,7 @@ namespace Sample
     /// The sample scene renderer, with a camera and
     /// basic HDR environment.
     /// </summary>
-    class Scene
+    class Scene : IDisposable
     {
         private Device device;
 
@@ -119,6 +119,8 @@ namespace Sample
 
         private Texture2D depthBuffer;
         private DepthStencilView depthStencilView;
+
+        private RasterizerState rasterizerState;
 
         private DirectInput directInput;
 
@@ -132,7 +134,7 @@ namespace Sample
 
         private Model model, skydome, ground;
 
-        public Scene(Device device, RenderForm window, Size resolution)
+        public Scene(Device device, DeviceContext context, RenderForm window, Size resolution)
         {
             model = new Model(device, "sibenik");
 
@@ -150,6 +152,9 @@ namespace Sample
             CreateDepthbuffer(resolution);
             CreateInput(window);
             CreateCamera(resolution);
+
+            rasterizerState = new RasterizerState(device, new RasterizerStateDescription() { CullMode = CullMode.None, FillMode = FillMode.Solid });
+            rasterizerState.DebugName = "Scene RasterizerState";
 
             window.MouseUp += MouseUp;
             window.MouseDown += MouseDown;
@@ -189,6 +194,10 @@ namespace Sample
                 DepthWriteMask = DepthWriteMask.All,
                 DepthComparison = Comparison.Less
             });
+
+            depthStencilState.DebugName = "Scene DSS";
+
+            //SharpDX.Diagnostics.ObjectTracker.Track(depthStencilState);
 
             depthBuffer = new Texture2D(device, new Texture2DDescription
             {
@@ -247,12 +256,12 @@ namespace Sample
             Program.DisplayResolution = resolution;
         }
 
-        public void Render(RenderTargetView renderTargetView)
+        public void Render(RenderTargetView renderTargetView, DeviceContext context)
         {
             /* Acquire user input, also clamp the up/down rotation term. */
             camera.MoveCamera(AcquireKeyboardInput());
 
-            if (keyboard.GetCurrentState().PressedKeys.Contains(Key.Escape)) Environment.Exit(1);
+            if (keyboard.GetCurrentState().PressedKeys.Contains(Key.Escape)) window.Close();
 
             if (keyboard.GetCurrentState().PressedKeys.Contains(Key.P)) this.ChangeResolution(renderTargetView, new Size(1024, 1024));
 
@@ -261,20 +270,58 @@ namespace Sample
                 model.Rotation += Vector3.One * 0.1f;
             }
 
-            device.ImmediateContext.ClearDepthStencilView(depthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
-            device.ImmediateContext.ClearRenderTargetView(renderTargetView, new Color4(0.5f, 0, 1, 1));
+            context.ClearDepthStencilView(depthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
+            context.ClearRenderTargetView(renderTargetView, new Color4(0.5f, 0, 1, 1));
 
-            device.ImmediateContext.Rasterizer.State = new RasterizerState(device, new RasterizerStateDescription() { CullMode = CullMode.None, FillMode = FillMode.Solid });
-            device.ImmediateContext.Rasterizer.SetViewports(new[] { new ViewportF(0, 0, resolution.Width, resolution.Height) });
-            device.ImmediateContext.Rasterizer.SetScissorRectangles(new[] { new SharpDX.Rectangle(0, 0, resolution.Width, resolution.Height) });
-            device.ImmediateContext.OutputMerger.DepthStencilState = depthStencilState;
-            device.ImmediateContext.OutputMerger.SetTargets(depthStencilView, renderTargetView);
+            context.Rasterizer.State = rasterizerState;
+            context.Rasterizer.SetViewports(new[] { new ViewportF(0, 0, resolution.Width, resolution.Height) });
+            context.Rasterizer.SetScissorRectangles(new[] { new SharpDX.Rectangle(0, 0, resolution.Width, resolution.Height) });
+            context.OutputMerger.DepthStencilState = depthStencilState;
+            context.OutputMerger.SetTargets(depthStencilView, renderTargetView);
 
-            model.Render(device, camera);
-            skydome.Render(device, camera);
-            ground.Render(device, camera);
-
-            device.ImmediateContext.ClearState();
+            model.Render(device, context, camera);
+            skydome.Render(device, context, camera);
+            ground.Render(device, context, camera);
         }
+
+        #region IDisposable
+
+        /// <summary>
+        /// Destroys this Scene instance.
+        /// </summary>
+        ~Scene()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
+        /// Disposes of all used resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                model.Dispose();
+                skydome.Dispose();
+                ground.Dispose();
+
+                depthStencilState.Dispose();
+                depthStencilView.Dispose();
+                rasterizerState.Dispose();
+
+                depthBuffer.Dispose();
+
+                directInput.Dispose();
+                keyboard.Dispose();
+            }
+        }
+
+        #endregion
     }
 }

@@ -95,22 +95,35 @@ namespace Sample
     /// <summary>
     /// Utility class to load and cache color/bump maps.
     /// </summary>
-    class MapCache
+    class MapCache : IDisposable
     {
-        private Dictionary<String, ShaderResourceView> cache = new Dictionary<String, ShaderResourceView>();
+        private struct Map
+        {
+            public Texture2D texture;
+            public ShaderResourceView view;
 
-        private ShaderResourceView LoadMap(Device device, String mapName)
+            public Map(Texture2D texture, ShaderResourceView view)
+            {
+                this.texture = texture;
+                this.view = view;
+            }
+        }
+
+        private Dictionary<String, Map> cache = new Dictionary<String, Map>();
+
+        private Map LoadMap(Device device, String mapName)
         {
             if (mapName != null)
             {
                 String path = Settings.TextureDir + mapName;
                 Texture2D texture = (Texture2D)Texture2D.FromFile(device, path);
                 ShaderResourceView view = new ShaderResourceView(device, texture);
+                texture.DebugName = "MapCache texture (" + mapName + ")";
 
-                return view;
+                return new Map(texture, view);
             }
 
-            return null;
+            throw new ArgumentException("No such map.");
         }
 
         /// <summary>
@@ -125,18 +138,51 @@ namespace Sample
             {
                 if (!cache.ContainsKey(mapName)) cache.Add(mapName, LoadMap(device, mapName));
 
-                return cache[mapName];
+                return cache[mapName].view;
             }
 
             return null;
         }
+
+        #region IDisposable
+
+        /// <summary>
+        /// Destroys this MapCache instance.
+        /// </summary>
+        ~MapCache()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
+        /// Disposes of all used resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                foreach (Map map in cache.Values)
+                {
+                    map.view.Dispose();
+                    map.texture.Dispose();
+                }
+            }
+        }
+
+        #endregion
     }
 
     /// <summary>
     /// Represents a single model with possibly many meshes, each with
     /// their own material, required assets, and a model view matrix.
     /// </summary>
-    class Model
+    class Model : IDisposable
     {
         /// <summary>
         /// Vertex layout to use for the vertex shader.
@@ -384,17 +430,52 @@ namespace Sample
             return material;
         }
 
-        public void Render(Device device, Camera camera)
+        public void Render(Device device, DeviceContext context, Camera camera)
         {
-            device.ImmediateContext.VertexShader.Set(vertexShader.vertexShader);
-            device.ImmediateContext.PixelShader.Set(pixelShader.pixelShader);
-            device.ImmediateContext.InputAssembler.InputLayout = vertexShader.inputLayout;
+            context.VertexShader.Set(vertexShader.vertexShader);
+            context.PixelShader.Set(pixelShader.pixelShader);
+            context.InputAssembler.InputLayout = vertexShader.inputLayout;
 
             Matrix modelToWorld = Matrix.Scaling(Scale)
                                 * Matrix.RotationYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z)
                                 * Matrix.Translation(Translation);
 
-            foreach (Mesh mesh in meshes) mesh.Render(device, modelToWorld, camera, mapCache);
+            foreach (Mesh mesh in meshes) mesh.Render(device, context, modelToWorld, camera, mapCache);
         }
+
+        #region IDisposable
+
+        /// <summary>
+        /// Destroys this Model instance.
+        /// </summary>
+        ~Model()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
+        /// Disposes of all used resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                vertexShader.Dispose();
+                pixelShader.Dispose();
+
+                foreach (Mesh mesh in meshes)
+                    mesh.Dispose();
+
+                mapCache.Dispose();
+            }
+        }
+
+        #endregion
     }
 }

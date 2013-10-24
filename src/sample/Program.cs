@@ -21,13 +21,13 @@ namespace Sample
 
                 RenderLoop.Run(window, () =>
                 {
-                    if (resolutionChanged)
+                    if (restartRenderer)
                     {
                         if (renderer != null) renderer.Dispose();
                         window.ClientSize = DisplayResolution;
                         renderer = new Renderer(window);
                         TweakBar.UpdateWindow(window);
-                        resolutionChanged = false;
+                        restartRenderer = false;
                     }
 
                     renderer.Render();
@@ -43,7 +43,7 @@ namespace Sample
         }
 
         static private Size resolution = Settings.InitialResolution;
-        static private Boolean resolutionChanged = true;
+        static private Boolean restartRenderer = true;
 
         /// <summary>
         /// Gets or sets the display resolution (if changed, will
@@ -60,10 +60,18 @@ namespace Sample
             {
                 if (value != resolution)
                 {
-                    resolutionChanged = true;
+                    restartRenderer = true;
                     resolution = value;
                 }
             }
+        }
+
+        /// <summary>
+        /// Called when the renderer wishes to be reinitialized.
+        /// </summary>
+        public static void Restart()
+        {
+            restartRenderer = true;
         }
     }
 }

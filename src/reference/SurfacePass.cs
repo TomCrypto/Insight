@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Collections.Generic;
 
 using SharpDX;
@@ -21,6 +22,7 @@ namespace Insight
         private RasterizerState rasterizerState;
         private VertexShader quadVertexShader;
         private Buffer constantBuffer;
+        private SamplerState sampler;
 
         private PixelShader CompilePixelShader(Device device, String shader)
         {
@@ -40,6 +42,8 @@ namespace Insight
                 CullMode = CullMode.None,
                 FillMode = FillMode.Solid,
             });
+
+            rasterizerState.DebugName = "SurfacePass RasterizerState";
         }
 
         private void SetupConstantBuffer(Device device)
@@ -78,6 +82,22 @@ namespace Insight
             {
                 quadVertexShader = new VertexShader(device, bytecode);
             }
+
+            sampler = new SamplerState(device, new SamplerStateDescription()
+            {
+                AddressU = TextureAddressMode.Border,
+                AddressV = TextureAddressMode.Border,
+                AddressW = TextureAddressMode.Border,
+                BorderColor = Color4.Black,
+                ComparisonFunction = Comparison.Always,
+                Filter = Filter.MinMagMipLinear,
+                MaximumAnisotropy = 16,
+                MaximumLod = 15,
+                MinimumLod = 0,
+                MipLodBias = 0,
+            });
+
+            sampler.DebugName = "SurfacePass Sampler";
         }
 
         private void ExecuteShaderPass(DeviceContext context)
@@ -108,46 +128,29 @@ namespace Insight
         /// <param name="srv">Shader resources.</param>
         /// <param name="uav">Unordered access views.</param>
         /// <param name="cbuffer">A data stream to fill the constant buffer with.</param>
-        public void Pass(Device device, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
+        public void Pass(Device device, DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
         {
             if (shader == null) throw new ArgumentNullException("Shader code cannot be null.");
-            device.ImmediateContext.PixelShader.Set(CompilePixelShader(device, shader));
+            context.PixelShader.Set(CompilePixelShader(device, shader));
 
-            if (uav != null) device.ImmediateContext.OutputMerger.SetTargets(1, uav, new[] { rtv });
-            else device.ImmediateContext.OutputMerger.SetTargets(new[] { rtv });
+            if (uav != null) context.OutputMerger.SetTargets(1, uav, new[] { rtv });
+            else context.OutputMerger.SetTargets(new[] { rtv });
 
-            if (srv != null) device.ImmediateContext.PixelShader.SetShaderResources(0, srv);
-            device.ImmediateContext.PixelShader.SetConstantBuffer(0, constantBuffer);
-            device.ImmediateContext.Rasterizer.SetViewports(new[] { viewport });
+            if (srv != null) context.PixelShader.SetShaderResources(0, srv);
+            context.PixelShader.SetConstantBuffer(0, constantBuffer);
+            context.Rasterizer.SetViewports(new[] { viewport });
+            context.PixelShader.SetSampler(0, sampler);
 
             if (cbuffer != null)
             {
                 DataStream stream;
-                device.ImmediateContext.MapSubresource(constantBuffer, MapMode.WriteDiscard, MapFlags.None, out stream);
+                context.MapSubresource(constantBuffer, MapMode.WriteDiscard, MapFlags.None, out stream);
                 cbuffer.CopyTo(stream);
-                device.ImmediateContext.UnmapSubresource(constantBuffer, 0);
+                context.UnmapSubresource(constantBuffer, 0);
                 stream.Dispose();
             }
 
-            ExecuteShaderPass(device.ImmediateContext);
-        }
-
-        /// <summary>
-        /// Runs a shader pass over the entire render target.
-        /// </summary>
-        /// <param name="device">The graphics device to use.</param>
-        /// <param name="shader">The pixel shader.</param>
-        /// <param name="rtv">The render target (must be a 2D texture).</param>
-        /// <param name="srv">Shader resources.</param>
-        /// <param name="uav">Unordered access views.</param>
-        /// <param name="cbuffer">A data stream to fill the constant buffer with.</param>
-        public void Pass(Device device, String shader, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
-        {
-            int w = rtv.Resource.QueryInterface<Texture2D>().Description.Width;
-            int h = rtv.Resource.QueryInterface<Texture2D>().Description.Height;
-
-            ViewportF viewport = new ViewportF(0, 0, w, h);
-            Pass(device, shader, viewport, rtv, srv, uav, cbuffer);
+            ExecuteShaderPass(context);
         }
 
         /// <summary>
@@ -158,9 +161,19 @@ namespace Insight
         /// <param name="rtv">The render target (must be a 2D texture).</param>
         /// <param name="srv">Shader resources.</param>
         /// <param name="cbuffer">A data stream to fill the constant buffer with.</param>
-        public void Pass(Device device, String shader, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
+        public void Pass(Device device, DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
         {
-            Pass(device, shader, rtv, srv, null, cbuffer);
+            Pass(device, context, shader, viewport, rtv, srv, null, cbuffer);
+        }
+
+        public void Pass(Device device, DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
+        {
+            Pass(device, context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, null, cbuffer);
+        }
+
+        public void Pass(Device device, DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
+        {
+            Pass(device, context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, uav, cbuffer);
         }
 
         #region IDisposable
@@ -186,6 +199,7 @@ namespace Insight
         {
             if (disposing)
             {
+                sampler.Dispose();
                 constantBuffer.Dispose();
                 rasterizerState.Dispose();
                 quadVertexShader.Dispose();

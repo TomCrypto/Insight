@@ -71,10 +71,10 @@ namespace Insight
         /// be discarded by the caller in favor of the newly created GraphicsResource instance).
         /// </summary>
         /// <param name="resource">The Texture2D resource.</param>
-        public GraphicsResource(Texture2D resource)
+        public GraphicsResource(Device device, Texture2D resource)
         {
-            if ((resource.Description.BindFlags & BindFlags.RenderTarget) != 0) RTV = new RenderTargetView(resource.Device, resource);
-            if ((resource.Description.BindFlags & BindFlags.ShaderResource) != 0) SRV = new ShaderResourceView(resource.Device, resource);
+            if ((resource.Description.BindFlags & BindFlags.RenderTarget) != 0) RTV = new RenderTargetView(device, resource);
+            if ((resource.Description.BindFlags & BindFlags.ShaderResource) != 0) SRV = new ShaderResourceView(device, resource);
             Resource = resource;
         }
 
@@ -152,6 +152,7 @@ namespace Insight
             {
                 if (SRV != null) SRV.Dispose();
                 if (RTV != null) RTV.Dispose();
+
                 Resource.Dispose();
             }
         }
