@@ -22,9 +22,9 @@ The library is currently a work in progress and is **not** ready for use.
 
 #### FFT Convolution
 
-✔ Properly (and efficiently) convolves on Medium settings (used for testing)
+✔ Properly (and efficiently) convolves on all settings
 
-✔ Supports arbitrary input sizes to some extent (not completely pixel-perfect, and not very optimized)
+✔ Supports arbitrary input sizes to some extent
 
 ✘ Does not handle aspect ratio properly (diffraction spectrum is incorrectly stretched)
 
