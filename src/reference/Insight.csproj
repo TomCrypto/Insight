@@ -67,7 +67,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FourierTransform.cs" />
-    <Compile Include="LensFlare.cs" />
+    <Compile Include="EyeDiffraction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SurfacePass.cs" />
     <Compile Include="GraphicsResource.cs" />

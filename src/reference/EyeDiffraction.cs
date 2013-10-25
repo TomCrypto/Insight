@@ -18,39 +18,46 @@ namespace Insight
         /// Low quality: aperture rendered at 256×256 resolution, convolution dimensions 512×512 pixels.
         /// Very fast, for low-end computers.
         /// </summary>
-        Low,
+        Low = 1,
+
         /// <summary>
         /// Medium quality: aperture rendered at 512×512 resolution, convolution dimensions 1024×1024 pixels.
         /// Good performance/accuracy balance.
         /// </summary>
-        Medium,
+        Medium = 2,
+
         /// <summary>
         /// High quality: aperture rendered at 1024×1024 resolution, convolution dimensions 2048×2048 pixels.
         /// For high-end graphics cards only.
         /// </summary>
-        High,
+        High = 3,
+
         /// <summary>
         /// Optimal quality: aperture rendered at 2048×2048 resolution, convolution dimensions 4096×4096 pixels.
         /// Intended for use in offline rendering.
         /// </summary>
-        Optimal,
+        Optimal = 4,
     }
 
     /// <summary>
     /// Describes some of the biological and optical properties of the eye
     /// being simulated, influencing the resulting diffraction effects.
     /// </summary>
-    public struct OpticalProfile
+    public class OpticalProfile
     {
-        // put stuff here
+        /// <summary>
+        /// Gets or sets the f-number of the aperture.
+        /// </summary>
+        public double FNumber { get; set; }
+
+        // TODO: add a default constructor which sets sensible initial values here
     }
 
     /// <summary>
     /// Provides configurable eye diffraction effects.
     /// </summary>
-    public sealed class LensFlare : IDisposable
+    public sealed class EyeDiffraction : IDisposable
     {
-        private OpticalProfile profile;
         private RenderQuality quality;
 
         private GraphicsResource aperture;
@@ -96,21 +103,24 @@ namespace Insight
 
             set
             {
-                if (aperture != null) aperture.Dispose();
-                if (spectrum != null) spectrum.Dispose();
-                
-                if (diffraction != null) diffraction.Dispose();
-                if (convolution != null) convolution.Dispose();
+                if ((value != quality) || (Profile == null))
+                {
+                    if (aperture != null) aperture.Dispose();
+                    if (spectrum != null) spectrum.Dispose();
 
-                diffraction = new DiffractionEngine(Device, Context, DiffractionSize(value));
-                convolution = new ConvolutionEngine(Device, ConvolutionSize(value));
+                    if (diffraction != null) diffraction.Dispose();
+                    if (convolution != null) convolution.Dispose();
 
-                aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
-                spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
+                    diffraction = new DiffractionEngine(Device, Context, DiffractionSize(value));
+                    convolution = new ConvolutionEngine(Device, Context, ConvolutionSize(value));
 
-                quality = value;
+                    aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
+                    spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
 
-                LoadAperture("aperture" + (DiffractionSize(quality).Width) + ".png");
+                    quality = value;
+
+                    LoadAperture("aperture" + (DiffractionSize(quality).Width) + ".png"); // TODO: temporary
+                }
             }
         }
 
@@ -137,9 +147,10 @@ namespace Insight
         /// will be reused, but will not be disposed of at instance destruction.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The device context to use.</param>
         /// <param name="quality">The required render quality.</param>
         /// <param name="profile">The desired optical profile.</param>
-        public LensFlare(Device device, DeviceContext context, RenderQuality quality, OpticalProfile profile)
+        public EyeDiffraction(Device device, DeviceContext context, RenderQuality quality, OpticalProfile profile)
         {
             Pass = new SurfacePass(device);
 
@@ -151,11 +162,11 @@ namespace Insight
 
         private void LoadAperture(String path)
         {
-            // by default, just load the aperture from a default image (change this later)
+            // TODO: for now just load the aperture from a default image (change this later)
             Resource defaultAperture = Texture2D.FromFile(Device, path);
             ShaderResourceView view = new ShaderResourceView(Device, defaultAperture);
 
-            Pass.Pass(Device, Context, @"
+            Pass.Pass(Context, @"
             texture2D source                : register(t0);
 
             SamplerState texSampler
@@ -186,16 +197,17 @@ namespace Insight
         /// Superimposes eye diffraction effects on a texture, created with render target
         /// and shader resource bind flags. The texture should have a high dynamic range.
         /// </summary>
+        /// <param name="renderSize">The dimensions of the render target.</param>
         /// <param name="target">The render target to which to render the output.</param>
         /// <param name="source">The source texture to add diffraction effects to.</param>
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
-        public void Render(Size renderSize, RenderTargetView target, ShaderResourceView source, double fNumber, double dt = 0)
+        public void Render(Size renderSize, RenderTargetView target, ShaderResourceView source, double dt = 0)
         {
             // TODO here generate aperture
 
             Time += dt;
 
-            diffraction.Diffract(Device, Context, Pass, spectrum.Dimensions, spectrum.RTV, aperture.SRV, fNumber);
+            diffraction.Diffract(Device, Context, Pass, spectrum.Dimensions, spectrum.RTV, aperture.SRV, Profile.FNumber);
 
             convolution.Convolve(Device, Context, Pass, renderSize, target, spectrum.SRV, source);
         }
@@ -205,7 +217,7 @@ namespace Insight
         /// <summary>
         /// Destroys this LensFlare instance.
         /// </summary>
-        ~LensFlare()
+        ~EyeDiffraction()
         {
             Dispose(false);
         }

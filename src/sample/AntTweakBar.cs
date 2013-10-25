@@ -22,10 +22,10 @@ namespace Sample
         public AntRenderForm(String title)
             : base(title)
         {
-            //window.StartPosition   = FormStartPosition.CenterScreen;
-            //window.FormBorderStyle = FormBorderStyle.FixedDialog;
+            ClientSize = Settings.InitialResolution;
+            StartPosition = FormStartPosition.WindowsDefaultLocation;
             Icon = Resources.ProgramIcon;
-            Location = new Point(10, 10);
+            MaximizeBox = false;
         }
 
         protected override void WndProc(ref System.Windows.Forms.Message m)
@@ -336,7 +336,7 @@ namespace Sample
 
             protected override void GetCallback(IntPtr value, IntPtr clientData)
             {
-                Marshal.Copy(new[] { val.X, val.Y, val.Z }, 0, value, 1);
+                Marshal.Copy(new[] { val.X, val.Y, val.Z }, 0, value, 3);
             }
 
             /// <summary>
@@ -392,7 +392,7 @@ namespace Sample
 
             protected override void GetCallback(IntPtr value, IntPtr clientData)
             {
-                Marshal.Copy(new[] { val.Red, val.Green, val.Blue }, 0, value, 1);
+                Marshal.Copy(new[] { val.Red, val.Green, val.Blue }, 0, value, 3);
             }
 
             /// <summary>
@@ -408,7 +408,7 @@ namespace Sample
 
                 set
                 {
-                    if (value is Vector3) { val = (Color3)value; return; }
+                    if (value is Color3) { val = (Color3)value; return; }
                     throw new ArgumentException("Expected Color3 value.");
                 }
             }
@@ -430,8 +430,12 @@ namespace Sample
         /// </summary>
         public IntPtr BarHandle { get { return bar; } }
 
+        public String Name { get; private set; }
+
         private Dictionary<String, Variable> variables = new Dictionary<String, Variable>();
-        
+
+        private static int BarCount = 0;
+
         /// <summary>
         /// Creates a new tweak bar.
         /// </summary>
@@ -439,9 +443,13 @@ namespace Sample
         /// <param name="barName">The bar's name.</param>
         public TweakBar(RenderForm window, String barName)
         {
+            this.Name = barName;
             this.window = window;
             bar = AntTweakBar.TwNewBar(barName);
             if (bar == IntPtr.Zero) throw new ExternalException("Failed to create new tweak bar.");
+
+            int left = 10 + 205 * (BarCount++), top = 10;
+            AntTweakBar.TwDefine("'" + Name + "'" + " position='" + left + " " + top + "'");
         }
 
         /// <summary>
@@ -544,35 +552,6 @@ namespace Sample
             variables.Remove(identifier);
         }
 
-#if false
-
-        /// <summary>
-        /// Gets or sets the value of a bar variable. You are expected to
-        /// know the type of the variable you are querying. This property
-        /// will throw an exception if you set an invalid variable type.
-        /// </summary>
-        /// <param name="name">Identifier of the variable.</param>
-        /// <returns>The (untyped) value of the variable.</returns>
-        public Object this[String identifier]
-        {
-            get
-            {
-                if (!variables.ContainsKey(identifier))
-                    throw new ArgumentException("No such variable.");
-
-                return variables[identifier].Value;
-            }
-
-            set
-            {
-                if (!variables.ContainsKey(identifier))
-                    throw new ArgumentException("No such variable.");
-
-                variables[identifier].Value = value;
-            }
-        }
-#endif
-
         public Variable this[String identifier]
         {
             get
@@ -587,7 +566,7 @@ namespace Sample
         #region IDisposable
 
         /// <summary>
-        /// Destroys this Renderer instance.
+        /// Destroys this TweakBar instance.
         /// </summary>
         ~TweakBar()
         {
@@ -628,7 +607,7 @@ namespace Sample
         public static bool InitializeLibrary(Device device)
         {
             if (!initialized) initialized = AntTweakBar.Init(AntTweakBar.GraphAPI.D3D11, device.NativePointer);
-
+            if (initialized) AntTweakBar.TwDefine("GLOBAL contained=true");
             return initialized;
         }
 
@@ -1239,6 +1218,9 @@ namespace Sample
         /// <param name="bar">The tweak bar from which to remove all variables.</param>
         [DllImport("AntTweakBar.dll")]
         public static extern bool TwRemoveAllVars(IntPtr bar);
+
+        [DllImport("AntTweakBar.dll")]
+        public static extern bool TwDefine(String define);
 
         [DllImport("AntTweakBar.dll")]
         public static extern bool TwEventWin(IntPtr wnd, int msg, IntPtr wParam, IntPtr lParam);

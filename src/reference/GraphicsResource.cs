@@ -70,6 +70,7 @@ namespace Insight
         /// class instance should be considered to own the resource (and so the parameter should
         /// be discarded by the caller in favor of the newly created GraphicsResource instance).
         /// </summary>
+        /// <param name="device">The graphics device to use.</param>
         /// <param name="resource">The Texture2D resource.</param>
         public GraphicsResource(Device device, Texture2D resource)
         {

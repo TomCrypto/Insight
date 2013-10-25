@@ -11,7 +11,7 @@ using Buffer = SharpDX.Direct3D11.Buffer;
 
 namespace Insight
 {
-    public struct FFTBuffer
+    struct FFTBuffer
     {
         public UnorderedAccessView view;
         public Buffer buffer;
@@ -26,7 +26,7 @@ namespace Insight
     /// <summary>
     /// Provides utility methods for the FFT classes.
     /// </summary>
-    public static class FFTUtils
+    static class FFTUtils
     {
         /// <summary>
         /// Allocates a raw buffer UAV with a given float count.
@@ -79,6 +79,7 @@ namespace Insight
         /// Creates a DiffractionEngine instance.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The graphics context to use.</param>
         /// <param name="resolution">The diffraction resolution.</param>
         public DiffractionEngine(Device device, DeviceContext context, Size resolution)
         {
@@ -117,7 +118,9 @@ namespace Insight
         /// the output will be resized to the destination texture as needed.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The device context to use.</param>
         /// <param name="pass">A SurfacePass instance.</param>
+        /// <param name="renderSize">The dimensions of the render target.</param>
         /// <param name="destination">The destination render target view.</param>
         /// <param name="source">The source texture, can be the same resource as the render target.</param>
         /// <param name="fNumber">The distance at which to evaluate the aperture transmission function.</param>
@@ -129,7 +132,7 @@ namespace Insight
             //if (new Size(source.ResourceAs<Texture2D>().Description.Width, source.ResourceAs<Texture2D>().Description.Height) != resolution)
             //    throw new ArgumentException("Source texture must be the same dimensions as diffraction resolution.");
 
-            pass.Pass(device, context, @"                                                                                       /* 1. Transcode source texture into input FFT buffer. */
+            pass.Pass(context, @"                                                                                       /* 1. Transcode source texture into input FFT buffer. */
             Texture2D<float>    gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -162,7 +165,7 @@ namespace Insight
 
             UnorderedAccessView fftView = fft.ForwardTransform(buffer.view);
 
-            pass.Pass(device, context, @"                                                                                       /* 2. Transcode output FFT buffer into transform texture. */
+            pass.Pass(context, @"                                                                                       /* 2. Transcode output FFT buffer into transform texture. */
             RWByteAddressBuffer buffer : register(u1);
 
             cbuffer constants : register(b0)
@@ -194,7 +197,7 @@ namespace Insight
             cbuffer.Write<float>((float)fNumber);
             cbuffer.Position = 0;
 
-            pass.Pass(device, context, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
+            pass.Pass(context, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
             Texture2D<float> transform : register(t0);
 
             SamplerState texSampler
@@ -325,7 +328,7 @@ namespace Insight
             cbuffer.Write<float>((float)fNumber);
             cbuffer.Position = 0;
 
-            pass.Pass(device, context, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
+            pass.Pass(context, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
             Texture2D<float3> spectrum : register(t0);
 
             cbuffer constants : register(b0)
@@ -424,10 +427,11 @@ namespace Insight
         /// Creates a ConvolutionEngine instance.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The graphics context to use.</param>
         /// <param name="resolution">The convolution resolution.</param>
-        public ConvolutionEngine(Device device, Size resolution)
+        public ConvolutionEngine(Device device, DeviceContext context, Size resolution)
         {
-            fft = FastFourierTransform.Create2DComplex(device.ImmediateContext, resolution.Width, resolution.Height);
+            fft = FastFourierTransform.Create2DComplex(context, resolution.Width, resolution.Height);
             fft.InverseScale = 1.0f / (float)(resolution.Width * resolution.Height);
             this.resolution = resolution;
 
@@ -461,7 +465,7 @@ namespace Insight
 
         public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
         {
-            pass.Pass(device, context, @"
+            pass.Pass(context, @"
             Texture2D<float3> gTex : register(u1);
 
             SamplerState texSampler
@@ -488,7 +492,7 @@ namespace Insight
             ConvolveChannel(device, context, pass, a, staging.SRV, gConvolved, "y");
             ConvolveChannel(device, context, pass, a, staging.SRV, bConvolved, "z");
 
-            pass.Pass(device, context, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
+            pass.Pass(context, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
             Texture2D<float> rTex : register(t0);
             Texture2D<float> gTex : register(t1);
             Texture2D<float> bTex : register(t2);
@@ -534,7 +538,7 @@ namespace Insight
             ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
         }
 
-        private void ZeroPad(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel, bool sub)
+        private void ZeroPad(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel)
         {
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
@@ -543,40 +547,7 @@ namespace Insight
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            if (sub)
-            {
-                pass.Pass(device, context, @"
-            Texture2D<float3>   gTex : register(t0);
-            RWByteAddressBuffer dest : register(u1);
-
-            cbuffer constants : register(b0)
-            {
-                uint w, h;
-            }
-
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float main(PS_IN input) : SV_Target
-            {
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
-                uint index = (y * w + x) << 3U;
-
-                float intensity = gTex.Load(int3(x, y, 0))." + channel + @";
-
-                dest.Store2(index, asuint(float2(intensity, 0)));
-
-                return 0;
-            }
-            ", viewport, null, new[] { source }, new[] { target }, cbuffer);
-            }
-            else
-            {
-                pass.Pass(device, context, @"
+            pass.Pass(context, @"
             Texture2D<float3>   gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -603,7 +574,6 @@ namespace Insight
                 return 0;
             }
             ", viewport, null, new[] { source }, new[] { target }, cbuffer);
-            }
 
             cbuffer.Dispose();
         }
@@ -614,8 +584,8 @@ namespace Insight
 
             ViewportF viewport = new ViewportF(0, 0, resolution.Width, resolution.Height);
 
-            ZeroPad(device, context, pass, sourceA, lBuf.view, channel, true);
-            ZeroPad(device, context, pass, sourceB, rBuf.view, channel, false);
+            ZeroPad(device, context, pass, sourceA, lBuf.view, channel);
+            ZeroPad(device, context, pass, sourceB, rBuf.view, channel);
 
             fft.ForwardTransform(lBuf.view, tBuf.view);
             fft.ForwardTransform(rBuf.view, lBuf.view);
@@ -625,7 +595,7 @@ namespace Insight
             cbuffer.Write<uint>((uint)resolution.Height);
             cbuffer.Position = 0;
 
-            pass.Pass(device, context, @"                                                                                       /* 3. Pointwise multiply FFT(A) and FFT(B). */
+            pass.Pass(context, @"                                                                                       /* 3. Pointwise multiply FFT(A) and FFT(B). */
             RWByteAddressBuffer bufA : register(u1);
             RWByteAddressBuffer bufB : register(u2);
 
@@ -670,7 +640,7 @@ namespace Insight
 
             UnorderedAccessView fftView = fft.InverseTransform(tBuf.view);
 
-            pass.Pass(device, context, @"                                                                                       /* 4. Transcode IFFT(FFT(A) · FFT(B)) to texture. */
+            pass.Pass(context, @"                                                                                       /* 4. Transcode IFFT(FFT(A) · FFT(B)) to texture. */
             RWByteAddressBuffer buf : register(u1);
 
             cbuffer constants : register(b0)

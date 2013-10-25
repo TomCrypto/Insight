@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Text;
 using System.Drawing;
 using System.Collections.Generic;
 
@@ -16,8 +18,42 @@ namespace Insight
     /// </summary>
     public class SurfacePass : IDisposable
     {
+        private class ShaderInclude : Include
+        {
+            public Stream Open(IncludeType type, string fileName, Stream stream)
+            {
+                if ((type == IncludeType.System) && (fileName == "surface_pass"))
+                {
+                    /* SurfacePass include - give pixel definition. */
+                    return new MemoryStream(Encoding.ASCII.GetBytes(@"
+struct PixelDefinition
+{
+    float4 pos : SV_POSITION;
+    float2 tex :    TEXCOORD;
+};
+                "));
+                }
+                else
+                {
+                    /* Standard include, just get the correct shader file. */
+                    String data = File.ReadAllText(fileName, Encoding.ASCII);
+                    return new MemoryStream(Encoding.ASCII.GetBytes(data));
+                }
+            }
+
+            public void Close(Stream stream)
+            {
+                stream.Close();
+            }
+
+            public IDisposable Shadow { get; set; }
+            public void Dispose() { }
+        }
+
+        private static ShaderInclude includeHandler = new ShaderInclude();
+
         private Dictionary<String, PixelShader> shaders = new Dictionary<String, PixelShader>();
-        private const ShaderFlags ShaderFlag = ShaderFlags.OptimizationLevel3;
+        private const ShaderFlags ShaderParams = ShaderFlags.OptimizationLevel3;
         private const int ConstantBufferSize = 1024; /* bytes */
         private RasterizerState rasterizerState;
         private VertexShader quadVertexShader;
@@ -26,8 +62,8 @@ namespace Insight
 
         private PixelShader CompilePixelShader(Device device, String shader)
         {
-            if (shaders.ContainsKey(shader)) return shaders[shader]; /* This will enable inline shader code. */
-            else using (ShaderBytecode bytecode = ShaderBytecode.Compile(shader, "main", "ps_5_0", ShaderFlag))
+            if (shaders.ContainsKey(shader)) return shaders[shader]; /* This will also enable inline shader code, by caching already compiled shaders. */
+            else using (ShaderBytecode bytecode = ShaderBytecode.Compile(shader, "main", "ps_5_0", ShaderParams, EffectFlags.None, null, includeHandler))
             {
                 PixelShader pixelShader = new PixelShader(device, bytecode);
                 shaders.Add(shader, pixelShader);
@@ -42,8 +78,6 @@ namespace Insight
                 CullMode = CullMode.None,
                 FillMode = FillMode.Solid,
             });
-
-            rasterizerState.DebugName = "SurfacePass RasterizerState";
         }
 
         private void SetupConstantBuffer(Device device)
@@ -62,42 +96,40 @@ namespace Insight
         private void SetupVertexShader(Device device)
         {
             String vertexShader = @"
-            struct VS_OUT
-            {
-                float4 pos : SV_POSITION;
-                float2 tex :    TEXCOORD;
-            };
+struct PixelDefinition
+{
+    float4 pos : SV_POSITION;
+    float2 tex :    TEXCOORD;
+};
  
-            VS_OUT main(uint id : SV_VertexID)
-            {
-                VS_OUT output;
+PixelDefinition main(uint id : SV_VertexID)
+{
+    PixelDefinition output;
 
-                output.tex = float2((id << 1) & 2, id & 2);
-                output.pos = float4(output.tex * float2(2, -2) + float2(-1, 1), 0, 1);
+    output.tex = float2((id << 1) & 2, id & 2);
+    output.pos = float4(output.tex * float2(2, -2) + float2(-1, 1), 0, 1);
 
-                return output;
-            }";
+    return output;
+}";
 
-            using (ShaderBytecode bytecode = ShaderBytecode.Compile(vertexShader, "main", "vs_5_0", ShaderFlag))
+            using (ShaderBytecode bytecode = ShaderBytecode.Compile(vertexShader, "main", "vs_5_0", ShaderParams))
             {
                 quadVertexShader = new VertexShader(device, bytecode);
             }
 
             sampler = new SamplerState(device, new SamplerStateDescription()
             {
+                ComparisonFunction = Comparison.Always,
                 AddressU = TextureAddressMode.Border,
                 AddressV = TextureAddressMode.Border,
                 AddressW = TextureAddressMode.Border,
-                BorderColor = Color4.Black,
-                ComparisonFunction = Comparison.Always,
                 Filter = Filter.MinMagMipLinear,
+                BorderColor = Color4.Black,
                 MaximumAnisotropy = 16,
                 MaximumLod = 15,
                 MinimumLod = 0,
                 MipLodBias = 0,
             });
-
-            sampler.DebugName = "SurfacePass Sampler";
         }
 
         private void ExecuteShaderPass(DeviceContext context)
@@ -108,6 +140,11 @@ namespace Insight
         }
 
         /// <summary>
+        /// Gets the device associated with this SurfacePass instance.
+        /// </summary>
+        public Device Device { get; private set; }
+
+        /// <summary>
         /// Creates a SurfacePass instance.
         /// </summary>
         /// <param name="device">The graphics device to use.</param>
@@ -116,22 +153,23 @@ namespace Insight
             SetupRasterizerState(device);
             SetupConstantBuffer(device);
             SetupVertexShader(device);
+            Device = device;
         }
 
         /// <summary>
         /// The most general shader pass method.
         /// </summary>
-        /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The device context to use.</param>
         /// <param name="shader">The pixel shader.</param>
         /// <param name="viewport">The render viewport.</param>
         /// <param name="rtv">A render target.</param>
         /// <param name="srv">Shader resources.</param>
         /// <param name="uav">Unordered access views.</param>
         /// <param name="cbuffer">A data stream to fill the constant buffer with.</param>
-        public void Pass(Device device, DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
+        public void Pass(DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
         {
             if (shader == null) throw new ArgumentNullException("Shader code cannot be null.");
-            context.PixelShader.Set(CompilePixelShader(device, shader));
+            context.PixelShader.Set(CompilePixelShader(Device, shader));
 
             if (uav != null) context.OutputMerger.SetTargets(1, uav, new[] { rtv });
             else context.OutputMerger.SetTargets(new[] { rtv });
@@ -156,24 +194,25 @@ namespace Insight
         /// <summary>
         /// Runs a shader pass over the entire render target, with no UAV's.
         /// </summary>
-        /// <param name="device">The graphics device to use.</param>
+        /// <param name="context">The device context to use.</param>
         /// <param name="shader">The pixel shader.</param>
+        /// <param name="viewport">The render viewport.</param>
         /// <param name="rtv">The render target (must be a 2D texture).</param>
         /// <param name="srv">Shader resources.</param>
         /// <param name="cbuffer">A data stream to fill the constant buffer with.</param>
-        public void Pass(Device device, DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
+        public void Pass(DeviceContext context, String shader, ViewportF viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
         {
-            Pass(device, context, shader, viewport, rtv, srv, null, cbuffer);
+            Pass(context, shader, viewport, rtv, srv, null, cbuffer);
         }
 
-        public void Pass(Device device, DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
+        public void Pass(DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, DataStream cbuffer)
         {
-            Pass(device, context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, null, cbuffer);
+            Pass(context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, null, cbuffer);
         }
 
-        public void Pass(Device device, DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
+        public void Pass(DeviceContext context, String shader, Size viewport, RenderTargetView rtv, ShaderResourceView[] srv, UnorderedAccessView[] uav, DataStream cbuffer)
         {
-            Pass(device, context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, uav, cbuffer);
+            Pass(context, shader, new ViewportF(0, 0, viewport.Width, viewport.Height), rtv, srv, uav, cbuffer);
         }
 
         #region IDisposable

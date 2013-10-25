@@ -124,8 +124,6 @@ namespace Sample
         /// <param name="rotation">The rotation angle by which to rotate by.</param>
         public void RotateCamera(Vector2 rotation)
         {
-            rotation *= Settings.rotationSensitivity;
-
             Rotation = new Vector2((float)(Rotation.X + rotation.X), /* Clamp vertical angle to avoid reversal. */
                                    (float)Math.Max(-Math.PI / 2, Math.Min(Math.PI / 2, (Rotation.Y + rotation.Y))));
         }

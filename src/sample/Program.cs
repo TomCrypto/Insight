@@ -22,7 +22,7 @@ namespace Sample
                     {
                         RenderLoop.Run(window, () =>
                         {
-                            //renderer.Update();
+                            renderer.Update();
                             renderer.Render();
                         });
                     }
@@ -30,6 +30,7 @@ namespace Sample
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 MessageBox.Show(ex.Message, "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

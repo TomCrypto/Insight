@@ -24,11 +24,6 @@ namespace Sample
         private VertexBufferBinding vertexBuffer;
 
         /// <summary>
-        /// Material to use to render this mesh.
-        /// </summary>
-        private Material material;
-
-        /// <summary>
         /// Constant buffer for model data.
         /// </summary>
         private Buffer modelBuffer;
@@ -39,14 +34,11 @@ namespace Sample
         private Buffer cameraBuffer;
 
         /// <summary>
-        /// Constant buffer for the material.
-        /// </summary>
-        private Buffer materialBuffer;
-
-        /// <summary>
         /// A standard texture sampler.
         /// </summary>
         private SamplerState sampler;
+
+        public String MeshName { get; private set; }
 
         /// <summary>
         /// Creates a new mesh.
@@ -55,7 +47,7 @@ namespace Sample
         /// <param name="meshName">The mesh name (the material to use).</param>
         /// <param name="faces">The list of triangles in the mesh.</param>
         /// <param name="material">The material for this mesh.</param>
-        public Mesh(Device device, String meshName, List<Triangle> faces, Material material)
+        public Mesh(Device device, String meshName, List<Triangle> faces)
         {
             using (DataStream triangleStream = new DataStream(Triangle.Size() * faces.Count, false, true))
             {
@@ -74,23 +66,7 @@ namespace Sample
                 vertexBuffer = new VertexBufferBinding(vertices, Triangle.Size() / 3, 0);
             }
 
-            this.material = material;
-
-            using (DataStream materialStream = new DataStream(Material.Size(), false, true))
-            {
-                material.WriteTo(materialStream);
-                materialStream.Position = 0;
-
-                BufferDescription description = new BufferDescription()
-                {
-                    SizeInBytes = Material.Size(),
-                    Usage = ResourceUsage.Immutable,
-                    BindFlags = BindFlags.ConstantBuffer,
-                    CpuAccessFlags = CpuAccessFlags.None,
-                };
-
-                materialBuffer = new Buffer(device, materialStream, description);
-            }
+            this.MeshName = meshName;
 
             cameraBuffer = new Buffer(device, new BufferDescription()
             {
@@ -132,7 +108,7 @@ namespace Sample
         /// <param name="modelToWorld">Model to world matrix.</param>
         /// <param name="camera">The camera from with to render.</param>
         /// <param name="mapCache">A map cache, for texture access.</param>
-        public void Render(Device device, DeviceContext context, Matrix modelToWorld, Camera camera, MapCache mapCache)
+        public void Render(Device device, DeviceContext context, Matrix modelToWorld, Camera camera, ResourceProxy proxy)
         {
             {
                 DataStream cameraStream;
@@ -150,12 +126,8 @@ namespace Sample
                 modelStream.Dispose();
             }
 
-            ShaderResourceView color = mapCache.Request(device, material.ColorMap);
-            ShaderResourceView bump = mapCache.Request(device, material.BumpMap);
-
-            context.VertexShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
-            context.PixelShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer, materialBuffer });
-            context.PixelShader.SetShaderResources(0, new[] { color, bump });
+            context.VertexShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer });
+            context.PixelShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer });
             context.PixelShader.SetSamplers(0, new[] { sampler });
 
             context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
@@ -188,7 +160,6 @@ namespace Sample
             if (disposing)
             {
                 vertices.Dispose();
-                materialBuffer.Dispose();
                 cameraBuffer.Dispose();
                 modelBuffer.Dispose();
                 sampler.Dispose();

@@ -93,92 +93,6 @@ namespace Sample
     }
 
     /// <summary>
-    /// Utility class to load and cache color/bump maps.
-    /// </summary>
-    class MapCache : IDisposable
-    {
-        private struct Map
-        {
-            public Texture2D texture;
-            public ShaderResourceView view;
-
-            public Map(Texture2D texture, ShaderResourceView view)
-            {
-                this.texture = texture;
-                this.view = view;
-            }
-        }
-
-        private Dictionary<String, Map> cache = new Dictionary<String, Map>();
-
-        private Map LoadMap(Device device, String mapName)
-        {
-            if (mapName != null)
-            {
-                String path = Settings.TextureDir + mapName;
-                Texture2D texture = (Texture2D)Texture2D.FromFile(device, path);
-                ShaderResourceView view = new ShaderResourceView(device, texture);
-                texture.DebugName = "MapCache texture (" + mapName + ")";
-
-                return new Map(texture, view);
-            }
-
-            throw new ArgumentException("No such map.");
-        }
-
-        /// <summary>
-        /// Requests a map by a given name.
-        /// </summary>
-        /// <param name="device">The device to use.</param>
-        /// <param name="mapName">The map's name.</param>
-        /// <returns>The map view (as a texture SRV).</returns>
-        public ShaderResourceView Request(Device device, String mapName)
-        {
-            if (mapName != null)
-            {
-                if (!cache.ContainsKey(mapName)) cache.Add(mapName, LoadMap(device, mapName));
-
-                return cache[mapName].view;
-            }
-
-            return null;
-        }
-
-        #region IDisposable
-
-        /// <summary>
-        /// Destroys this MapCache instance.
-        /// </summary>
-        ~MapCache()
-        {
-            Dispose(false);
-        }
-
-        /// <summary>
-        /// Disposes of all used resources.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                foreach (Map map in cache.Values)
-                {
-                    map.view.Dispose();
-                    map.texture.Dispose();
-                }
-            }
-        }
-
-        #endregion
-    }
-
-    /// <summary>
     /// Represents a single model with possibly many meshes, each with
     /// their own material, required assets, and a model view matrix.
     /// </summary>
@@ -195,11 +109,6 @@ namespace Sample
         /// List of meshes in the model.
         /// </summary>
         private List<Mesh> meshes = new List<Mesh>();
-
-        /// <summary>
-        /// Cache to store all the textures.
-        /// </summary>
-        private MapCache mapCache = new MapCache();
 
         /// <summary>
         /// Scale of the model.
@@ -219,12 +128,12 @@ namespace Sample
         /// <summary>
         /// Vertex shader for this model.
         /// </summary>
-        private Shader vertexShader;
+        //private Shader vertexShader;
 
         /// <summary>
         /// Pixel shader for this model.
         /// </summary>
-        private Shader pixelShader;
+        //private Shader pixelShader;
 
         /// <summary>
         /// Loads a model from an OBJ file.
@@ -233,18 +142,14 @@ namespace Sample
         /// <param name="modelName">The model name.</param>
         public Model(Device device, String modelName)
         {
-            LoadModel(device, File.ReadLines(Settings.ModelDir + modelName + Settings.ModelExt),
-                              File.ReadLines(Settings.MaterialDir + modelName + Settings.MaterialExt));
-
-            vertexShader = new Shader(device, modelName, ShaderType.Vertex, VertexLayout);
-            pixelShader = new Shader(device, modelName, ShaderType.Pixel);
+            LoadModel(device, File.ReadLines(modelName));
 
             Scale = Vector3.One;
             Rotation = Vector3.Zero;
             Translation = Vector3.Zero;
         }
 
-        private void LoadModel(Device device, IEnumerable<String> geometry, IEnumerable<String> materials)
+        private void LoadModel(Device device, IEnumerable<String> geometry)
         {
             /* Step 1 -- Parse every vertex (+ UV's) of the model into a list. */
 
@@ -314,7 +219,7 @@ namespace Sample
                         meshFaces.Add(tokens[1], new List<Triangle>());
             }
 
-            String currentMaterial = "";
+            String currentMesh = "";
 
             foreach (String line in geometry)
             {
@@ -324,7 +229,7 @@ namespace Sample
                 if (tokens[0].Equals("usemtl"))
                 {
                     if (tokens.Length < 2) continue;
-                    currentMaterial = tokens[1];
+                    currentMesh = tokens[1];
                 }
                 else if (tokens[0].Equals("f"))
                 {
@@ -338,7 +243,7 @@ namespace Sample
                         int t2 = Int32.Parse(tokens[2].Split('/')[1]) - 1;
                         int t3 = Int32.Parse(tokens[3].Split('/')[1]) - 1;
 
-                        meshFaces[currentMaterial].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
+                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
                                                                      normals[v1],  normals[v2],  normals[v3],
                                                                     texCoord[t1], texCoord[t2], texCoord[t3]));
                     }
@@ -354,11 +259,11 @@ namespace Sample
                         int t3 = Int32.Parse(tokens[3].Split('/')[1]) - 1;
                         int t4 = Int32.Parse(tokens[4].Split('/')[1]) - 1;
 
-                        meshFaces[currentMaterial].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
+                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
                                                                      normals[v1],  normals[v2],  normals[v3],
                                                                     texCoord[t1], texCoord[t2], texCoord[t3]));
 
-                        meshFaces[currentMaterial].Add(new Triangle(vertices[v1], vertices[v3], vertices[v4],
+                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v3], vertices[v4],
                                                                      normals[v1],  normals[v3],  normals[v4],
                                                                     texCoord[t1], texCoord[t3], texCoord[t4]));
                     }
@@ -372,75 +277,21 @@ namespace Sample
                 if (meshName.Equals("sprljci")) continue; // temporary
                 if (meshName.Equals("staklo")) continue; // temporary
 
-                Material material = ParseMaterial(meshName, materials);
-                meshes.Add(new Mesh(device, meshName, meshFaces[meshName], material));
+                meshes.Add(new Mesh(device, meshName, meshFaces[meshName]));
             }
         }
 
-        private Material ParseMaterial(String materialName, IEnumerable<String> materials)
+        public void Render(Device device, DeviceContext context, Camera camera, Dictionary<String, Material> materials, ResourceProxy proxy)
         {
-            Material material = new Material();
-            bool located = false;
-
-            foreach (String line in materials)
-            {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length < 1) continue;
-                if (tokens[0].Equals("newmtl"))
-                {
-                    if (tokens.Length < 2) continue;
-                    located = tokens[1].Equals(materialName);
-                }
-
-                if (located)
-                {
-                    switch (tokens[0])
-                    {
-                        case "\tNs": 
-                            material.SpecularShininess = Single.Parse(tokens[1]);
-                            break;
-
-                        case "\tillum":
-                            material.Brightness = Single.Parse(tokens[1]);
-                            break;
-
-                        case "\tKd":
-                            material.DiffuseReflectance = new Vector3(Single.Parse(tokens[1]),
-                                                                      Single.Parse(tokens[2]),
-                                                                      Single.Parse(tokens[3]));
-                            break;
-
-                        case "\tKs":
-                            material.SpecularReflectance = new Vector3(Single.Parse(tokens[1]),
-                                                                       Single.Parse(tokens[2]),
-                                                                       Single.Parse(tokens[3]));
-                            break;
-
-                        case "\tmap_Kd":
-                            material.ColorMap = tokens[1];
-                            break;
-
-                        case "\tmap_bump":
-                            material.BumpMap = tokens[1];
-                            break;
-                    }
-                }
-            }
-
-            return material;
-        }
-
-        public void Render(Device device, DeviceContext context, Camera camera)
-        {
-            context.VertexShader.Set(vertexShader.vertexShader);
-            context.PixelShader.Set(pixelShader.pixelShader);
-            context.InputAssembler.InputLayout = vertexShader.inputLayout;
-
             Matrix modelToWorld = Matrix.Scaling(Scale)
                                 * Matrix.RotationYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z)
                                 * Matrix.Translation(Translation);
 
-            foreach (Mesh mesh in meshes) mesh.Render(device, context, modelToWorld, camera, mapCache);
+            foreach (Mesh mesh in meshes)
+            {
+                materials[mesh.MeshName].BindMaterial(context, proxy);
+                mesh.Render(device, context, modelToWorld, camera, proxy);
+            }
         }
 
         #region IDisposable
@@ -466,16 +317,100 @@ namespace Sample
         {
             if (disposing)
             {
-                vertexShader.Dispose();
-                pixelShader.Dispose();
+                //vertexShader.Dispose();
+                //pixelShader.Dispose();
 
                 foreach (Mesh mesh in meshes)
                     mesh.Dispose();
-
-                mapCache.Dispose();
             }
         }
 
         #endregion
+
+        public static Dictionary<String, Model> Parse(Device device, IEnumerable<String> definition)
+        {
+            try
+            {
+                Dictionary<String, Model> models = new Dictionary<String, Model>();
+
+                using (IEnumerator<String> data = definition.GetEnumerator())
+                {
+                    String currentModel = null;
+
+                    while (data.MoveNext())
+                    {
+                        String[] tokens = data.Current.Split('#');
+                        if (tokens.Length == 0) continue;
+                        String line = tokens[0].Trim();
+                        if (line.Length == 0) continue;
+
+                        if (line.StartsWith("model "))
+                        {
+                            if (TrimSplit(line).Length == 3)
+                            {
+                                String modelPath = TrimSplit(line)[1];
+                                String modelName = TrimSplit(line)[2];
+
+                                models.Add(modelName, new Model(device, modelPath));
+                                currentModel = modelName;
+                            }
+                            else throw new ArgumentException("invalid model declaration");
+                        }
+                        else
+                        {
+                            if (currentModel == null) throw new ArgumentException("no model declared");
+
+                            if (TrimSplit(line, ' ').Length == 4)
+                            {
+                                String header = TrimSplit(line, ' ')[0];
+                                Vector3 vector = Vector3.Zero;
+
+                                try
+                                {
+                                    float x = Single.Parse(TrimSplit(line, ' ')[1]);
+                                    float y = Single.Parse(TrimSplit(line, ' ')[2]);
+                                    float z = Single.Parse(TrimSplit(line, ' ')[3]);
+                                    vector = new Vector3(x, y, z);
+                                }
+                                catch
+                                {
+                                    throw new ArgumentException("invalid model declaration");
+                                }
+
+                                switch (header)
+                                {
+                                    case "s":
+                                        models[currentModel].Scale = vector;
+                                        break;
+
+                                    case "r":
+                                        models[currentModel].Rotation = vector;
+                                        break;
+
+                                    case "t":
+                                        models[currentModel].Translation = vector;
+                                        break;
+
+                                    default:
+                                        throw new ArgumentException("error parsing model declaration");
+                                }
+                            }
+                            else throw new ArgumentException("invalid model declaration");
+                        }
+                    }
+                }
+
+                return models;
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Failed to parse definition file: " + ex.Message + ".", ex);
+            }
+        }
+
+        private static String[] TrimSplit(String value, char separator = ' ')
+        {
+            return value.Trim().Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
+        }
     }
 }

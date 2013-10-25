@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 using SharpDX;
 using SharpDX.DXGI;
@@ -14,86 +15,32 @@ using Insight;
 namespace Sample
 {
     /// <summary>
-    /// The sample renderer pipeline.
+    /// The sample's render pipeline.
     /// </summary>
     class Renderer : IDisposable
     {
-        /// <summary>
-        /// Graphics device currently in use.
-        /// </summary>
+        private DeviceContext context;
+        private SwapChain swapChain;
+        private Factory factory;
         private Device device;
 
-        /// <summary>
-        /// Main swapchain for the rendering.
-        /// </summary>
-        private SwapChain swapChain;
-
-        /// <summary>
-        /// A temporary texture buffer, for tonemapping.
-        /// </summary>
-        private GraphicsResource temporary;
-
-        /// <summary>
-        /// High dynamic range buffer to render the scene.
-        /// </summary>
-        private GraphicsResource hdrBuffer;
-
-        /// <summary>
-        /// Low-depth buffer for the swapchain.
-        /// </summary>
-        private GraphicsResource ldrBuffer;
-
-        /// <summary>
-        /// The LensFlare instance from the library.
-        /// </summary>
-        private LensFlare lensFlare;
-
         private GraphicsResource intermediate;
+        private GraphicsResource hdrBuffer;
+        private GraphicsResource ldrBuffer;
+        private GraphicsResource resolved;
 
-        /// <summary>
-        /// Timer to measure elapsed time.
-        /// </summary>
-        private Stopwatch timer = new Stopwatch();
-
-        /// <summary>
-        /// Frame time (in seconds) of the last frame.
-        /// </summary>
-        private double lastFrameTime;
-
-        private TweakBar tweakBar;
-
+        private OpticalProfile profile = new OpticalProfile();
+        private EyeDiffraction eyeDiffraction;
+        private ToneMapper toneMapper;
+        private TweakBar mainBar;
         private Scene scene;
 
-        private RenderForm window;
+        private Stopwatch timer = new Stopwatch();
+        private double currentTime;
 
-        private DeviceContext context;
+        #region DirectX Resources Initialization
 
-        /// <summary>
-        /// Called when the window is resized.
-        /// </summary>
-        private void ResizeWindow(object sender, EventArgs e)
-        {
-            context.ClearState();
-            context.Flush();
-
-            resolved.Dispose();
-            temporary.Dispose();
-            intermediate.Dispose();
-            hdrBuffer.Dispose();
-            ldrBuffer.Dispose();
-
-            swapChain.ResizeBuffers(0, 0, 0, Format.Unknown, SwapChainFlags.None);
-
-            InitializeResources();
-
-            scene.Resize(window.ClientSize);
-        }
-
-        /// <summary>
-        /// Initializes the graphics device and swapchain using
-        /// the window provided in the Renderer constructor.
-        /// </summary>
-        private void InitializeGraphicsDevice()
+        private void InitializeGraphicsDevice(RenderForm window)
         {
 #if DEBUG
             var flags = DeviceCreationFlags.Debug;
@@ -103,7 +50,7 @@ namespace Sample
 
             Device.CreateWithSwapChain(DriverType.Hardware, flags, new SwapChainDescription()
             {
-                BufferCount = 2,
+                BufferCount = 1,
                 IsWindowed = true,
                 Flags = SwapChainFlags.None,
                 OutputHandle = window.Handle,
@@ -112,76 +59,62 @@ namespace Sample
                 SampleDescription = new SampleDescription(1, 0),
                 ModeDescription = new ModeDescription()
                 {
+                    Width = 0, Height = 0,
                     Format = Format.R8G8B8A8_UNorm,
-                    Width = 0,//window.ClientSize.Width,
-                    Height = 0,//window.ClientSize.Height,
                     RefreshRate = new Rational(60, 1),
-                    Scaling = DisplayModeScaling.Centered,
-                    ScanlineOrdering = DisplayModeScanlineOrder.Unspecified
                 }
             }, out device, out swapChain);
 
             context = device.ImmediateContext;
-
             factory = swapChain.GetParent<Factory>();
             factory.MakeWindowAssociation(window.Handle, WindowAssociationFlags.IgnoreAll);
         }
 
-        private Factory factory;
-
-        private GraphicsResource resolved;
-
-        /// <summary>
-        /// Initializes the graphics resources. Also
-        /// presents once to avoid render ghosting.
-        /// </summary>
-        private void InitializeResources()
+        private void InitializeResources(Size dimensions)
         {
-            resolved     = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            temporary    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true, true);
-            intermediate = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
-            //hdrBuffer    = new GraphicsResource(device, window.ClientSize, Format.R32G32B32A32_Float, true, true);
+            if (intermediate != null) intermediate.Dispose();
+            if (  toneMapper != null) toneMapper.Dispose();
+            if (   hdrBuffer != null) hdrBuffer.Dispose();
+            if (   ldrBuffer != null) ldrBuffer.Dispose();
+            if (    resolved != null) resolved.Dispose();
 
+            swapChain.ResizeBuffers(0, 0, 0, Format.Unknown, SwapChainFlags.None);
+
+            toneMapper   = new ToneMapper(device, dimensions, (Double)mainBar["exposure"].Value, (Double)mainBar["gamma"].Value);
+            intermediate = new GraphicsResource(device, dimensions, Format.R32G32B32A32_Float, true, true);
+            resolved     = new GraphicsResource(device, dimensions, Format.R32G32B32A32_Float, true, true);
             ldrBuffer    = new GraphicsResource(device, swapChain.GetBackBuffer<Texture2D>(0));
 
-            context.ClearRenderTargetView(ldrBuffer.RTV, Color4.Black);
-            swapChain.Present(0, PresentFlags.None);
-
+            /* hdrBuffer is a bit special since it can be multisampled - create this one manually. */
             hdrBuffer = new GraphicsResource(device, new Texture2D(device, new Texture2DDescription()
             {
                 ArraySize = 1,
-                BindFlags = BindFlags.RenderTarget | BindFlags.ShaderResource,
-                CpuAccessFlags = CpuAccessFlags.None,
-                Format = Format.R32G32B32A32_Float,
-                Height = window.ClientSize.Height,
                 MipLevels = 1,
-                OptionFlags = ResourceOptionFlags.None,
-                SampleDescription = new SampleDescription(1, 0),
+                Width = dimensions.Width,
+                Height = dimensions.Height,
                 Usage = ResourceUsage.Default,
-                Width = window.ClientSize.Width
+                Format = Format.R32G32B32A32_Float,
+                CpuAccessFlags = CpuAccessFlags.None,
+                OptionFlags = ResourceOptionFlags.None,
+                SampleDescription = Settings.MultisamplingOptions,
+                BindFlags = BindFlags.RenderTarget | BindFlags.ShaderResource,
             }));
         }
 
-        /// <summary>
-        /// Called when the user changes the diffraction quality.
-        /// </summary>
+        #endregion
+
+        #region General Parameters Configuration
+
+        #region Bar Listeners
+
         private void QualityChange(object sender, Variable variable)
         {
-            RenderQuality newQuality = (RenderQuality)((int)variable.Value - 1);
-
-            if (Settings.quality != newQuality)
-            {
-                Settings.quality = newQuality;
-
-                if (lensFlare != null) lensFlare.Dispose();
-
-                lensFlare = new LensFlare(device, context, Settings.quality, new OpticalProfile());
-            }
+            eyeDiffraction.Quality = (RenderQuality)((int)variable.Value);
         }
 
         private void RotationChange(object sender, Variable variable)
         {
-            Settings.rotationSensitivity = (float)((Double)variable.Value);
+            scene.RotationSensitivity = (Double)variable.Value;
         }
 
         private void MovementChange(object sender, Variable variable)
@@ -189,63 +122,108 @@ namespace Sample
             Settings.movementSensitivity = (float)((Double)variable.Value);
         }
 
-        /// <summary>
-        /// Initializes our TweakBar.
-        /// </summary>
+        private void ExposureChange(object sender, Variable variable)
+        {
+            toneMapper.Exposure = (Double)variable.Value;
+        }
+
+        private void GammaChange(object sender, Variable variable)
+        {
+            toneMapper.Gamma = (Double)variable.Value;
+        }
+
+        private void FNumberChange(object sender, Variable variable)
+        {
+            profile.FNumber = (Double)variable.Value;
+        }
+
+        private void FieldOfViewChange(object sender, Variable variable)
+        {
+            scene.FieldOfView = (float)(Double)variable.Value;
+        }
+
+        #endregion
+
         private void InitializeTweakBar()
         {
-            if (!TweakBar.InitializeLibrary(device)) throw new System.Runtime.InteropServices.ExternalException("Failed to initialize AntTweakBar!");
+            if (!TweakBar.InitializeLibrary(device)) throw new ExternalException("Failed to initialize AntTweakBar!");
             else
             {
-                tweakBar = new TweakBar(window, "Configuration Options");
+                mainBar = new TweakBar(null, "Configuration Options");
 
-                tweakBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
-                tweakBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.015, 0.005, 3, "Exposure level at which to render the scene.");
-                tweakBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
-                tweakBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality + 1, 1, "The quality of the diffraction effects (from 1 to 4).");
-                tweakBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to model the aperture.");
+                /* Configuration options go below. */
 
-                tweakBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.05, 2, "The sensitivity of mouse rotation.");
-                tweakBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.05, 2, "The sensitivity of keyboard movement.");
+                mainBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
+                mainBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.015, 0.005, 3, "Exposure level at which to render the scene.");
+                mainBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
+                mainBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality, 1, "The quality of the diffraction effects (from 1 to 4).");
+                mainBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to simulate the aperture.");
 
-                tweakBar["quality"].VariableChange += QualityChange;
+                mainBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.05, 2, "The sensitivity of mouse rotation.");
+                mainBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.05, 2, "The sensitivity of keyboard movement.");
 
-                tweakBar["rotation_sensitivity"].VariableChange += RotationChange;
-                tweakBar["movement_sensitivity"].VariableChange += MovementChange;
+                mainBar.AddFloat("field_of_view", "Field Of View", "Navigation", 10, 120, 75, 1, 2, "The sensitivity of keyboard movement.");
 
-                // put options here
+                /* TweakBar listeners go below. */
+
+                mainBar["quality"].VariableChange += QualityChange;
+
+                mainBar["exposure"].VariableChange += ExposureChange;
+                mainBar["gamma"].VariableChange += GammaChange;
+
+                mainBar["fnumber"].VariableChange += FNumberChange;
+
+                mainBar["rotation_sensitivity"].VariableChange += RotationChange;
+                mainBar["movement_sensitivity"].VariableChange += MovementChange;
+                mainBar["field_of_view"].VariableChange += FieldOfViewChange;
             }
         }
 
-        /// <summary>
-        /// Initializes the Insight library.
-        /// </summary>
+        #endregion
+
+        #region Render Subsystems Initialization
+
         private void InitializeInsight()
         {
-            // put config here
+            // initialize profile here
 
-            lensFlare = new LensFlare(device, context, Settings.quality, new OpticalProfile());
+            profile.FNumber = (Double)mainBar["fnumber"].Value;
+
+            if (eyeDiffraction != null) eyeDiffraction.Dispose();
+            eyeDiffraction = new EyeDiffraction(device, context, Settings.quality, profile);
+        }
+
+        private void InitializeScene(RenderForm window)
+        {
+            scene = new Scene(device, context, window, window.ClientSize);
+            scene.RotationSensitivity = (float)(Double)mainBar["rotation_sensitivity"].Value;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Creates a new Renderer instance.
+        /// </summary>
+        /// <param name="window">The window to render into.</param>
+        public Renderer(RenderForm window)
+        {
+            window.ResizeEnd += ResizeWindow;
+            InitializeGraphicsDevice(window);
+            InitializeTweakBar();
+
+            InitializeResources(window.ClientSize);
+            InitializeScene(window);
+            InitializeInsight();
+            timer.Start();
         }
 
         /// <summary>
-        /// Initializes the sample scene.
+        /// Reads user input and updates the state
+        /// of the renderer. No rendering in here.
         /// </summary>
-        private void InitializeScene()
+        public void Update()
         {
-            scene = new Scene(device, context, window, window.ClientSize);
-        }
-
-        public Renderer(RenderForm window)
-        {
-            this.window = window;
-
-            window.ResizeEnd += ResizeWindow;
-            InitializeGraphicsDevice();
-            InitializeResources();
-            InitializeTweakBar();
-            InitializeInsight();
-            InitializeScene();
-            timer.Start();
+            scene.Update();
         }
 
         /// <summary>
@@ -253,130 +231,56 @@ namespace Sample
         /// </summary>
         public void Render()
         {
-            RenderScene();
+            /* First we render our sample scene into the hdrBuffer. */
+            scene.Render(hdrBuffer.RTV, context, eyeDiffraction.Pass);
 
+            /* We were potentially rendering into a multisampled backbuffer, now resolve it to a normal one. */
             context.ResolveSubresource(hdrBuffer.Resource, 0, resolved.Resource, 0, Format.R32G32B32A32_Float);
 
-            if ((Boolean)tweakBar["diffraction"].Value) RenderLensFlares();
-            else context.CopyResource(resolved.Resource, intermediate.Resource);
+            /* If we're doing diffraction, render diffraction in that texture, else directly copy into intermediate. */
+            if (!(Boolean)mainBar["diffraction"].Value) context.CopyResource(resolved.Resource, intermediate.Resource);
+            else eyeDiffraction.Render(intermediate.Dimensions, intermediate.RTV, resolved.SRV, Tick());
 
-            Tonemap((Double)tweakBar["exposure"].Value, (Double)tweakBar["gamma"].Value);
+            /* Finally, tone-map the results into the final low-dynamic-range texture. */
+            toneMapper.ToneMap(context, eyeDiffraction.Pass, ldrBuffer.RTV, intermediate.SRV);
 
+            /* Render bars. */
             TweakBar.Render();
 
-            Present();
-        }
-
-        /// <summary>
-        /// Renders the demonstration scene.
-        /// </summary>
-        private void RenderScene()
-        {
-            scene.Render(hdrBuffer.RTV, context);
-        }
-
-        /// <summary>
-        /// Adds lens flare effects to the hdrBuffer.
-        /// </summary>
-        private void RenderLensFlares()
-        {
-            double frameTime = (double)timer.ElapsedTicks / (double)Stopwatch.Frequency;
-            lensFlare.Render(intermediate.Dimensions, intermediate.RTV, resolved.SRV, ((Double)tweakBar["fnumber"].Value), frameTime - lastFrameTime);
-            lastFrameTime = frameTime;
-        }
-
-        /// <summary>
-        /// Tonemaps the hdrBuffer into the ldrBuffer (swapchain backbuffer) via
-        /// a temporary texture for staging, using the Reinhard operator.
-        /// </summary>
-        private void Tonemap(double exposure, double gamma)
-        {
-            lensFlare.Pass.Pass(device, context, @"
-            texture2D source             : register(t0);
-
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float luminance(float3 rgb)
-            {
-                return dot(rgb, float3(0.2126f, 0.7152f, 0.0722f));
-            }
-
-            float4 main(PS_IN input) : SV_Target
-            {
-                uint w, h, m;
-
-                source.GetDimensions(0, w, h, m);
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
-
-                float3 rgb = source.Load(int3(x, y, 0)).xyz;
-
-                return float4(rgb, log(luminance(rgb) + 1e-6f));
-            }
-            ", temporary.Dimensions, temporary.RTV, new[] { intermediate.SRV }, null);
-
-            context.GenerateMips(temporary.SRV);
-
-            DataStream cbuffer = new DataStream(8, true, true);
-            cbuffer.Write<float>((float)exposure);
-            cbuffer.Write<float>(1.0f / (float)gamma);
-            cbuffer.Position = 0;
-
-            lensFlare.Pass.Pass(device, context, @"
-            texture2D source             : register(t0);
-
-            cbuffer constants : register(b0)
-            {
-                float exposure, invGamma;
-            }
-
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float luminance(float3 rgb)
-            {
-                return dot(rgb, float3(0.2126f, 0.7152f, 0.0722f));
-            }
-
-            float4 main(PS_IN input) : SV_Target
-            {
-                uint w, h, mipLevels;
-
-                source.GetDimensions(0, w, h, mipLevels);
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
-
-                float log_avg = exp(source.Load(int3(0, 0, mipLevels - 1)).w / (w * h));
-
-                float3 rgb = source.Load(int3(x, y, 0)).xyz;
-                float  lum = luminance(rgb);
-
-                float key = exposure / log_avg;
-
-                rgb *= key / (1.0f + lum * key);
-
-                return float4(pow(rgb, invGamma), 1);
-            }
-            ", ldrBuffer.Dimensions, ldrBuffer.RTV, new[] { temporary.SRV }, cbuffer);
-
-            cbuffer.Dispose();
-        }
-
-        /// <summary>
-        /// Presents the ldrBuffer to the display.
-        /// </summary>
-        public void Present()
-        {
+            /* Send the backbuffer to the screen. */
             swapChain.Present(1, PresentFlags.None);
         }
-        
+
+        #region Miscellaneous
+
+        /// <summary>
+        /// Returns the time elapsed since the last call, in seconds.
+        /// </summary>
+        private double Tick()
+        {
+            double elapsed = (double)timer.ElapsedTicks / (double)Stopwatch.Frequency;
+            double delta = elapsed - currentTime; currentTime = elapsed; return delta;
+        }
+
+        /// <summary>
+        /// Called when the window is resized. This should
+        /// resize the swapchain and update all resources.
+        /// </summary>
+        private void ResizeWindow(object sender, EventArgs e)
+        {
+            RenderForm window = (RenderForm)sender;
+            
+            /* Update if the window has actually changed. */
+            if (scene.RenderDimensions != window.ClientSize)
+            {
+                scene.RenderDimensions = window.ClientSize;
+                InitializeResources(window.ClientSize);
+                TweakBar.UpdateWindow(window);
+            }
+        }
+
+        #endregion
+
         #region IDisposable
 
         /// <summary>
@@ -400,25 +304,24 @@ namespace Sample
         {
             if (disposing)
             {
-                lensFlare.Dispose();
+                eyeDiffraction.Dispose();
+                intermediate.Dispose();
+                toneMapper.Dispose();
                 ldrBuffer.Dispose();
                 hdrBuffer.Dispose();
-                temporary.Dispose();
-                intermediate.Dispose();
                 resolved.Dispose();
-                tweakBar.Dispose();
+                mainBar.Dispose();
                 scene.Dispose();
+                timer.Stop();
 
                 TweakBar.FinalizeLibrary();
-
                 context.ClearState();
                 context.Flush();
 
-                device.Dispose();
-                context.Dispose();
                 swapChain.Dispose();
+                context.Dispose();
                 factory.Dispose();
-                timer.Stop();
+                device.Dispose();
             }
         }
 

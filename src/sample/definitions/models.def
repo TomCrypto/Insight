@@ -1,0 +1,26 @@
+﻿# The model declaration format is:
+# model [model path] [model name]
+#     s [x] [y] [z] (scale)
+#     r [x] [y] [z] (rotation)
+#     t [x] [y] [z] (transform)
+# These can be in any order. If any are mising, they will take the following default values:
+#     s 1 1 1
+#     r 0 0 0
+#     t 0 0 0
+
+###### MODEL DEFINITIONS FOLLOW ######
+
+model models/ground.obj Ground
+	s 1 1 1
+	r 0 0 0
+	t 0 -15.35 0
+
+model models/skydome.obj Sky
+	s 20 20 20
+	r 0 0 0
+	t 0 -15.35 0
+
+model models/sibenik.obj Sibenik
+	s 1 1 1
+	r 0 0 0
+	t 0 0 0

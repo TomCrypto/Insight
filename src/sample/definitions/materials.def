@@ -1,0 +1,127 @@
+﻿# By convention, the pixel shader buffer registers are allocated as follows:
+
+# b0 : Model cbuffer      : for the model->world matrix and any other model-specific data
+# b1 : Camera cbuffer     : for the camera information (world->view, view->screen, camera position, ...)
+# b2 : Material cbuffer   : for any material parameters that need to be uploaded to the shader
+
+# The texture and sampler registers are allocated on a per-material basis, except:
+
+# t0 : Sky texture        : contains the sky environment map, in spherical (non-warped) coordinates
+
+# The mesh material declaration format is "mtl [mesh identifier] [mesh material name] [material] show/hide"
+
+# The material attribute declaration format is "[attribute type] [attribute name] = [attribute value]"
+
+###### MATERIAL DEFINITIONS FOLLOW ######
+
+mtl ground Ground Sample.GroundMaterial show
+	float Albedo = 2
+	string ColorMap = textures/grass.jpg
+
+mtl skydome Sky Sample.SkyMaterial show
+	float Brightness = 1
+
+mtl sprljci Cathedral1 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.784314 0.784314 0.784314
+	color3 Specular = 0 0 0
+	float Brightness = 20
+	float Shininess = 8
+	string ColorMap = textures/sky.png
+
+mtl staklo Cathedral2 Sample.SibenikMaterial show
+	color3 Diffuse = 0.784314 0.784314 0.784314
+	color3 Specular = 0.784314 0.784314 0.784314
+	float Brightness = 2000
+	float Shininess = 256
+	string ColorMap = textures/sky.png
+
+mtl kamen_zid Cathedral3 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.784314 0.784314 0.784314
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/kamen.png
+
+mtl stupovi Cathedral4 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.784314 0.784314 0.784314
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/KAMEN-stup.png
+
+mtl pod Cathedral5 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.784314 0.784314 0.784314
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/mramor6x6.png
+
+mtl pod_tepih Cathedral6 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.546274 0.219608 0.183922
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/ground.png
+
+mtl pod_rub Cathedral7 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/kamen.png
+
+mtl kamen_zid_prozor Cathedral8 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/kamen.png
+
+mtl zid_vani Cathedral9 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/kamen.png
+
+mtl kamen_zid_parapet Cathedral10 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/KAMEN-stup.png
+
+mtl staklo_crveno Cathedral11 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/KAMEN-stup.png
+
+mtl rozeta Cathedral12 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.734118 0.730588 0.674118
+	color3 Specular = 0 0 0
+	float Brightness = 2
+	float Shininess = 8
+	string ColorMap = textures/KAMEN-stup.png
+
+mtl staklo_zeleno Cathedral13 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.033333 0.315686 0.037255
+	color3 Specular = 0.8 0.8 0.8
+	float Brightness = 2
+	float Shininess = 256
+	string ColorMap = textures/sky.png
+
+mtl staklo_plavo Cathedral14 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.041177 0.072549 0.392157
+	color3 Specular = 0.8 0.8 0.8
+	float Brightness = 2
+	float Shininess = 256
+	string ColorMap = textures/sky.png
+
+mtl staklo_zuto Cathedral15 Sample.SibenikMaterial hide
+	color3 Diffuse = 0.500000 0.445098 0.003922
+	color3 Specular = 0.8 0.8 0.8
+	float Brightness = 2
+	float Shininess = 256
+	string ColorMap = textures/sky.png

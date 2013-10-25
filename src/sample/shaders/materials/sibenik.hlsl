@@ -1,5 +1,4 @@
-Texture2D color : register(t0);
-Texture2D bump  : register(t1);
+Texture2D color : register(t1);
 
 cbuffer model : register(b0)
 {
@@ -41,9 +40,9 @@ float3 main(PixelIn input) : SV_Target
 	// sample texture as usual
 	float3 diffuse = kD.xyz * max(0, dot(lightDir, input.normal.xyz));
 	
-	float3 R = reflect(lightDir, input.normal.xyz);
+	float3 R = normalize(reflect(lightDir, input.normal.xyz));
 
-	float3 specular = kS.xyz * pow(max(0, dot(-camDir.xyz, R)), nS);
+	float3 specular = kS.xyz * pow(max(0, dot(normalize(-camDir.xyz), R)), nS);
 
 	return col.xyz * 0.05f * brightness.x * (diffuse + specular) * 0.1f * 35;
 }
