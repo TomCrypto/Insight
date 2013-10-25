@@ -57,10 +57,10 @@ namespace Sample
         }
 
         /// <summary>
-        /// Renders the mesh using a camera.
+        /// Draws the mesh vertices.
         /// </summary>
-        /// <param name="device">The device to use.</param>
-        public void Render(Device device, DeviceContext context)
+        /// <param name="device">The device context to use.</param>
+        public void Render(DeviceContext context)
         {
             context.InputAssembler.SetVertexBuffers(0, new[] { vertexBuffer });
             context.Draw(vertices.Description.SizeInBytes / vertexBuffer.Stride, 0);

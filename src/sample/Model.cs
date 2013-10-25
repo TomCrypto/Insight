@@ -285,7 +285,7 @@ namespace Sample
 
         private Buffer modelBuffer;
 
-        public void Render(Device device, DeviceContext context, Camera camera, Dictionary<String, Material> materials, ResourceProxy proxy)
+        public void Render(DeviceContext context, Camera camera, Dictionary<String, Material> materials, ResourceProxy proxy)
         {
             Matrix modelToWorld = Matrix.Scaling(Scale)
                                 * Matrix.RotationYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z)
@@ -306,7 +306,7 @@ namespace Sample
             {
                 Material material = materials[mesh.MeshName];
                 material.BindMaterial(context, proxy);
-                mesh.Render(device, context);
+                mesh.Render(context);
             }
         }
 

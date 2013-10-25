@@ -328,7 +328,7 @@ namespace Sample
             context.PixelShader.SetConstantBuffer(0, cameraBuffer);
 
             foreach (Model model in models.Values)
-                model.Render(Device, context, camera, materials, proxy);
+                model.Render(context, camera, materials, proxy);
         }
 
         #region IDisposable
