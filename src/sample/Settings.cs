@@ -1,10 +1,7 @@
-﻿using System;
-using System.IO;
-using System.Drawing;
+﻿using System.Drawing;
 
 using SharpDX;
 using SharpDX.DXGI;
-using SharpDX.D3DCompiler;
 
 using Insight;
 

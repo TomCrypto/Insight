@@ -15,7 +15,6 @@ using Point = System.Drawing.Point;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
 using MapFlags = SharpDX.Direct3D11.MapFlags;
-using EffectFlags = SharpDX.D3DCompiler.EffectFlags;
 
 using Insight;
 

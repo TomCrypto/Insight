@@ -3,7 +3,6 @@ using System.Drawing;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-using SharpDX;
 using SharpDX.DXGI;
 using SharpDX.Windows;
 using SharpDX.Direct3D11;

@@ -1,10 +1,8 @@
 ﻿using System;
 using System.IO;
-using System.Drawing;
 using System.Collections.Generic;
 
 using SharpDX;
-using SharpDX.DXGI;
 using SharpDX.Direct3D11;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
@@ -117,16 +115,6 @@ namespace Sample
         /// Rotation of the model.
         /// </summary>
         public Vector3 Rotation { get; set; }
-
-        /// <summary>
-        /// Vertex shader for this model.
-        /// </summary>
-        //private Shader vertexShader;
-
-        /// <summary>
-        /// Pixel shader for this model.
-        /// </summary>
-        //private Shader pixelShader;
 
         /// <summary>
         /// Loads a model from an OBJ file.

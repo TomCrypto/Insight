@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using SharpDX;
 using SharpDX.Direct3D11;
 
 namespace Sample
