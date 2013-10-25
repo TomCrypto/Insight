@@ -324,8 +324,8 @@ namespace Sample
                 cameraStream.Dispose();
             }
 
-            context.VertexShader.SetConstantBuffer(1, cameraBuffer);
-            context.PixelShader.SetConstantBuffer(1, cameraBuffer);
+            context.VertexShader.SetConstantBuffer(0, cameraBuffer);
+            context.PixelShader.SetConstantBuffer(0, cameraBuffer);
 
             foreach (Model model in models.Values)
                 model.Render(Device, context, camera, materials, proxy);

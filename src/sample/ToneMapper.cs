@@ -77,10 +77,9 @@ namespace Sample
         public ToneMapper(Device device, Size dimensions, double exposure, double gamma)
         {
             Device = device;
+            Gamma = gamma;
             Exposure = exposure;
             Dimensions = dimensions;
-            
-            Gamma = gamma;
 
             averageShader = File.ReadAllText(@"shaders/tonemapper/average.hlsl");
             operateShader = File.ReadAllText(@"shaders/tonemapper/operate.hlsl");

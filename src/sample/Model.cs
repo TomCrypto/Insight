@@ -99,13 +99,6 @@ namespace Sample
     class Model : IDisposable
     {
         /// <summary>
-        /// Vertex layout to use for the vertex shader.
-        /// </summary>
-        private static InputElement[] VertexLayout = new[] { new InputElement("POSITION", 0, Format.R32G32B32A32_Float,  0, 0),
-                                                             new InputElement("NORMAL",   0, Format.R32G32B32A32_Float, 16, 0),
-                                                             new InputElement("TEXCOORD", 0, Format.R32G32B32A32_Float, 32, 0) };
-
-        /// <summary>
         /// List of meshes in the model.
         /// </summary>
         private List<Mesh> meshes = new List<Mesh>();
@@ -306,8 +299,8 @@ namespace Sample
                 modelStream.Dispose();
             }
 
-            context.VertexShader.SetConstantBuffer(0, modelBuffer);
-            context.PixelShader.SetConstantBuffer(0, modelBuffer);
+            context.VertexShader.SetConstantBuffer(1, modelBuffer);
+            context.PixelShader.SetConstantBuffer(1, modelBuffer);
 
             foreach (Mesh mesh in meshes)
             {

@@ -8,9 +8,6 @@ namespace Sample
 {
     static class Program
     {
-        /// <summary>
-        /// The sample's entry point.
-        /// </summary>
         [STAThread]
         static void Main()
         {
@@ -30,7 +27,7 @@ namespace Sample
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                Console.WriteLine(ex); // TODO: better error reporting later on
                 MessageBox.Show(ex.Message, "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

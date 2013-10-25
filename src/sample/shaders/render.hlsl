@@ -15,16 +15,16 @@
 // b1: The camera buffer, with the necessary matrices.                     //
 //#########################################################################//
 
-cbuffer model                                              : register(b0)
-{
-	float4x4 model;
-};
-
-cbuffer camera                                             : register(b1)
+cbuffer camera                                             : register(b0)
 {
 	float4x4 view;
 	float4 camPos;
 	float4 camDir;
+};
+
+cbuffer model                                              : register(b1)
+{
+	float4x4 model;
 };
 
 struct Vertex

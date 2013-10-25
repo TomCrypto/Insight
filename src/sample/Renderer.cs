@@ -241,7 +241,7 @@ namespace Sample
             if (!(Boolean)mainBar["diffraction"].Value) context.CopyResource(resolved.Resource, intermediate.Resource);
             else eyeDiffraction.Render(intermediate.Dimensions, intermediate.RTV, resolved.SRV, Tick());
 
-            /* Finally, tone-map the results into the final low-dynamic-range texture. */
+            /* Finally, tone-map the frame into the low-dynamic-range presentation texture. */
             toneMapper.ToneMap(context, eyeDiffraction.Pass, ldrBuffer.RTV, intermediate.SRV);
 
             /* Render bars. */

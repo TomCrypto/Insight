@@ -1,15 +1,15 @@
 Texture2D<float3> sky : register(t0);
 
-cbuffer model : register(b0)
-{
-	float4x4 model;
-};
-
-cbuffer camera : register(b1)
+cbuffer camera : register(b0)
 {
 	float4x4 view;
 	float4 camPos;
 	float4 camDir;
+};
+
+cbuffer model : register(b1)
+{
+	float4x4 model;
 };
 
 cbuffer material : register(b2)

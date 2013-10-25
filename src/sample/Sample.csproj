@@ -67,9 +67,9 @@
   <ItemGroup>
     <Compile Include="AntTweakBar.cs" />
     <Compile Include="Camera.cs" />
-    <Compile Include="SibenikMaterial.cs" />
-    <Compile Include="SkyMaterial.cs" />
-    <Compile Include="GroundMaterial.cs" />
+    <Compile Include="Materials\SibenikMaterial.cs" />
+    <Compile Include="Materials\SkyMaterial.cs" />
+    <Compile Include="Materials\GroundMaterial.cs" />
     <Compile Include="Material.cs" />
     <Compile Include="Mesh.cs" />
     <Compile Include="Model.cs" />

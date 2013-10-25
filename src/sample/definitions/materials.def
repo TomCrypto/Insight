@@ -1,7 +1,7 @@
 ﻿# By convention, the pixel shader buffer registers are allocated as follows:
 
-# b0 : Model cbuffer      : for the model->world matrix and any other model-specific data
-# b1 : Camera cbuffer     : for the camera information (world->view, view->screen, camera position, ...)
+# b0 : Camera cbuffer     : for the camera information (world->view, view->screen, camera position, ...)
+# b1 : Model cbuffer      : for the model->world matrix and any other model-specific data
 # b2 : Material cbuffer   : for any material parameters that need to be uploaded to the shader
 
 # The texture and sampler registers are allocated on a per-material basis, except:
