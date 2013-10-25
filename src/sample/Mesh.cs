@@ -24,30 +24,17 @@ namespace Sample
         private VertexBufferBinding vertexBuffer;
 
         /// <summary>
-        /// Constant buffer for model data.
+        /// Gets the name of this mesh.
         /// </summary>
-        private Buffer modelBuffer;
-
-        /// <summary>
-        /// Constant buffer for the camera.
-        /// </summary>
-        private Buffer cameraBuffer;
-
-        /// <summary>
-        /// A standard texture sampler.
-        /// </summary>
-        private SamplerState sampler;
-
         public String MeshName { get; private set; }
 
         /// <summary>
         /// Creates a new mesh.
         /// </summary>
         /// <param name="device">The device to use.</param>
-        /// <param name="meshName">The mesh name (the material to use).</param>
+        /// <param name="name">The name of the mesh.</param>
         /// <param name="faces">The list of triangles in the mesh.</param>
-        /// <param name="material">The material for this mesh.</param>
-        public Mesh(Device device, String meshName, List<Triangle> faces)
+        public Mesh(Device device, String name, List<Triangle> faces)
         {
             using (DataStream triangleStream = new DataStream(Triangle.Size() * faces.Count, false, true))
             {
@@ -66,72 +53,15 @@ namespace Sample
                 vertexBuffer = new VertexBufferBinding(vertices, Triangle.Size() / 3, 0);
             }
 
-            this.MeshName = meshName;
-
-            cameraBuffer = new Buffer(device, new BufferDescription()
-            {
-                SizeInBytes = Camera.Size(),
-                Usage = ResourceUsage.Dynamic,
-                BindFlags = BindFlags.ConstantBuffer,
-                CpuAccessFlags = CpuAccessFlags.Write,
-                OptionFlags = ResourceOptionFlags.None,
-            });
-
-            modelBuffer = new Buffer(device, new BufferDescription()
-            {
-                SizeInBytes = 512,
-                Usage = ResourceUsage.Dynamic,
-                BindFlags = BindFlags.ConstantBuffer,
-                CpuAccessFlags = CpuAccessFlags.Write,
-                OptionFlags = ResourceOptionFlags.None,
-            });
-
-            sampler = new SamplerState(device, new SamplerStateDescription()
-            {
-                ComparisonFunction = Comparison.Always,
-                AddressU = TextureAddressMode.Wrap,
-                AddressV = TextureAddressMode.Wrap,
-                AddressW = TextureAddressMode.Wrap,
-                Filter = Filter.Anisotropic,
-                BorderColor = Color4.Black,
-                MaximumAnisotropy = 16,
-                MaximumLod = 15,
-                MinimumLod = 0,
-                MipLodBias = 0,
-            });
+            MeshName = name;
         }
 
         /// <summary>
         /// Renders the mesh using a camera.
         /// </summary>
         /// <param name="device">The device to use.</param>
-        /// <param name="modelToWorld">Model to world matrix.</param>
-        /// <param name="camera">The camera from with to render.</param>
-        /// <param name="mapCache">A map cache, for texture access.</param>
-        public void Render(Device device, DeviceContext context, Matrix modelToWorld, Camera camera, ResourceProxy proxy)
+        public void Render(Device device, DeviceContext context)
         {
-            {
-                DataStream cameraStream;
-                context.MapSubresource(cameraBuffer, MapMode.WriteDiscard, MapFlags.None, out cameraStream);
-                camera.WriteTo(cameraStream);
-                context.UnmapSubresource(cameraBuffer, 0);
-                cameraStream.Dispose();
-            }
-
-            {
-                DataStream modelStream;
-                context.MapSubresource(modelBuffer, MapMode.WriteDiscard, MapFlags.None, out modelStream);
-                modelStream.Write<Matrix>(Matrix.Transpose(modelToWorld));
-                context.UnmapSubresource(modelBuffer, 0);
-                modelStream.Dispose();
-            }
-
-            context.VertexShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer });
-            context.PixelShader.SetConstantBuffers(0, new[] { modelBuffer, cameraBuffer });
-            context.PixelShader.SetSamplers(0, new[] { sampler });
-
-            context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
-
             context.InputAssembler.SetVertexBuffers(0, new[] { vertexBuffer });
             context.Draw(vertices.Description.SizeInBytes / vertexBuffer.Stride, 0);
         }
@@ -160,9 +90,6 @@ namespace Sample
             if (disposing)
             {
                 vertices.Dispose();
-                cameraBuffer.Dispose();
-                modelBuffer.Dispose();
-                sampler.Dispose();
             }
         }
 

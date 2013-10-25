@@ -7,13 +7,15 @@ using System.Collections.Generic;
 using SharpDX;
 using SharpDX.DXGI;
 using SharpDX.Windows;
+using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.D3DCompiler;
 using SharpDX.DirectInput;
+using Point = System.Drawing.Point;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
+using MapFlags = SharpDX.Direct3D11.MapFlags;
 using EffectFlags = SharpDX.D3DCompiler.EffectFlags;
-using Point = System.Drawing.Point;
 
 using Insight;
 
@@ -30,11 +32,11 @@ namespace Sample
         private DepthStencilView depthStencilView;
         private RasterizerState rasterizerState;
         private Texture2D depthBuffer;
-
         
         /* Variables concerning the user interacting. */
         private Point mousePosition = new Point(-1, -1);
         private DirectInput directInput;
+        private Buffer cameraBuffer;
         private Keyboard keyboard;
 
         private GraphicsResource skyEnvMap;
@@ -190,6 +192,7 @@ namespace Sample
             if (depthStencilState != null) depthStencilState.Dispose();
             if ( depthStencilView != null) depthStencilView.Dispose();
             if (  rasterizerState != null) rasterizerState.Dispose();
+            if (     cameraBuffer != null) cameraBuffer.Dispose();
             if (      depthBuffer != null) depthBuffer.Dispose();
 
             depthStencilState = new DepthStencilState(Device, new DepthStencilStateDescription
@@ -221,6 +224,15 @@ namespace Sample
             {
                 FillMode = FillMode.Solid,
                 CullMode = CullMode.None,
+            });
+
+            cameraBuffer = new Buffer(Device, new BufferDescription()
+            {
+                SizeInBytes = Camera.Size(),
+                Usage = ResourceUsage.Dynamic,
+                BindFlags = BindFlags.ConstantBuffer,
+                CpuAccessFlags = CpuAccessFlags.Write,
+                OptionFlags = ResourceOptionFlags.None,
             });
         }
 
@@ -302,6 +314,18 @@ namespace Sample
             context.VertexShader.Set(vertexShader);
             context.InputAssembler.InputLayout = inputLayout;
             context.PixelShader.SetShaderResource(0, skyEnvMap.SRV);
+            context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+
+            {
+                DataStream cameraStream;
+                context.MapSubresource(cameraBuffer, MapMode.WriteDiscard, MapFlags.None, out cameraStream);
+                camera.WriteTo(cameraStream);
+                context.UnmapSubresource(cameraBuffer, 0);
+                cameraStream.Dispose();
+            }
+
+            context.VertexShader.SetConstantBuffer(1, cameraBuffer);
+            context.PixelShader.SetConstantBuffer(1, cameraBuffer);
 
             foreach (Model model in models.Values)
                 model.Render(Device, context, camera, materials, proxy);
@@ -341,6 +365,7 @@ namespace Sample
                 depthStencilState.Dispose();
                 depthStencilView.Dispose();
                 rasterizerState.Dispose();
+                cameraBuffer.Dispose();
                 depthBuffer.Dispose();
 
                 materialBar.Dispose();

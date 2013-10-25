@@ -15,11 +15,12 @@ namespace Sample
     /// set to default, initial values, and may or may not be
     /// changeable by the sample. They are to be read by the
     /// renderer upon initialization.
+    /// 
+    /// Will be moved into a definition file later on.
     /// </summary>
     static class Settings
     {
-        private static Size initialResolution = new Size(1280, 800);
-        public static Size InitialResolution { get { return initialResolution; } }
+        public static Size InitialResolution = new Size(1280, 800);
 
         /// <summary> The far plane. </summary>
         static public float farPlane = 700;

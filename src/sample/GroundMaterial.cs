@@ -25,6 +25,8 @@ namespace Sample
 
         private PixelShader pixelShader;
 
+        private SamplerState sampler;
+
         public GroundMaterial(Device device, TweakBar bar, String name)
             : base(device, bar, name)
         {
@@ -33,6 +35,20 @@ namespace Sample
             pixelShader = Material.CompileShader(device, "ground");
 
             constantBuffer = Material.AllocateMaterialBuffer(device, BufferSize);
+
+            sampler = new SamplerState(device, new SamplerStateDescription()
+            {
+                ComparisonFunction = Comparison.Always,
+                AddressU = TextureAddressMode.Wrap,
+                AddressV = TextureAddressMode.Wrap,
+                AddressW = TextureAddressMode.Wrap,
+                Filter = Filter.Anisotropic,
+                BorderColor = Color4.Black,
+                MaximumAnisotropy = 16,
+                MaximumLod = 15,
+                MinimumLod = 0,
+                MipLodBias = 0,
+            });
         }
 
         public override void BindMaterial(DeviceContext context, ResourceProxy proxy)
@@ -44,6 +60,7 @@ namespace Sample
             }
 
             context.PixelShader.Set(pixelShader);
+            context.PixelShader.SetSampler(0, sampler);
             context.PixelShader.SetConstantBuffer(2, constantBuffer);
             context.PixelShader.SetShaderResource(1, proxy[ColorMap]);
         }
@@ -52,6 +69,7 @@ namespace Sample
         {
             if (disposing)
             {
+                sampler.Dispose();
                 pixelShader.Dispose();
                 constantBuffer.Dispose();
 

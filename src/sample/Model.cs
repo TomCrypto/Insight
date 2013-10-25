@@ -147,6 +147,15 @@ namespace Sample
             Scale = Vector3.One;
             Rotation = Vector3.Zero;
             Translation = Vector3.Zero;
+
+            modelBuffer = new Buffer(device, new BufferDescription()
+            {
+                SizeInBytes = 512,
+                Usage = ResourceUsage.Dynamic,
+                BindFlags = BindFlags.ConstantBuffer,
+                CpuAccessFlags = CpuAccessFlags.Write,
+                OptionFlags = ResourceOptionFlags.None,
+            });
         }
 
         private void LoadModel(Device device, IEnumerable<String> geometry)
@@ -281,16 +290,30 @@ namespace Sample
             }
         }
 
+        private Buffer modelBuffer;
+
         public void Render(Device device, DeviceContext context, Camera camera, Dictionary<String, Material> materials, ResourceProxy proxy)
         {
             Matrix modelToWorld = Matrix.Scaling(Scale)
                                 * Matrix.RotationYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z)
                                 * Matrix.Translation(Translation);
 
+            {
+                DataStream modelStream;
+                context.MapSubresource(modelBuffer, MapMode.WriteDiscard, SharpDX.Direct3D11.MapFlags.None, out modelStream);
+                modelStream.Write<Matrix>(Matrix.Transpose(modelToWorld));
+                context.UnmapSubresource(modelBuffer, 0);
+                modelStream.Dispose();
+            }
+
+            context.VertexShader.SetConstantBuffer(0, modelBuffer);
+            context.PixelShader.SetConstantBuffer(0, modelBuffer);
+
             foreach (Mesh mesh in meshes)
             {
-                materials[mesh.MeshName].BindMaterial(context, proxy);
-                mesh.Render(device, context, modelToWorld, camera, proxy);
+                Material material = materials[mesh.MeshName];
+                material.BindMaterial(context, proxy);
+                mesh.Render(device, context);
             }
         }
 
@@ -317,11 +340,9 @@ namespace Sample
         {
             if (disposing)
             {
-                //vertexShader.Dispose();
-                //pixelShader.Dispose();
+                modelBuffer.Dispose();
 
-                foreach (Mesh mesh in meshes)
-                    mesh.Dispose();
+                foreach (Mesh mesh in meshes) mesh.Dispose();
             }
         }
 
