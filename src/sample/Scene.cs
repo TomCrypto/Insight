@@ -156,7 +156,7 @@ namespace Sample
 
             // TODO: create SkyGenerator instance here
 
-            skyEnvMap = new GraphicsResource(device, new Size(1024, 1024), Format.R32G32B32A32_Float, true, true);
+            skyEnvMap = new GraphicsResource(device, new Size(2048, 1024), Format.R32G32B32A32_Float, true, true);
         }
 
         #region Mouse Movement
@@ -284,20 +284,20 @@ namespace Sample
 
             float3 main(PS_IN input) : SV_Target
             {
-                input.tex = (input.tex - 0.5f) * 2;
+                float phi = 2 * 3.14159265 * input.tex.x;
+                float theta = 3.14159265 * input.tex.y;
 
-                float y2 = 1 - pow(input.tex.x, 2) - pow(input.tex.y, 2);
-                if (y2 < 0) return float3(0, 0, 0); /* Outside circle. */
+                float3 p = float3(sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi));
 
-                float3 p = float3(input.tex.x, sqrt(y2), input.tex.y);
+                float brightness = 500;
+
+                if (p.y < 0) return lerp(float3(1, 1, 1), float3(0, 0, 0), -p.y) * brightness;
 
                 /* TEMPORARY */
 
-                float brightness = 50;
-
                 float sunBrightness = (dot(p, normalize(float3(-0.5f, 0.8f, 0.9f))) > 0.9995f) ? 1 : 0;
 
-	            return lerp(float3(1, 1, 1), float3(0.7f, 0.7f, 1), p.y) * brightness + sunBrightness * 175000;
+	            return lerp(float3(1, 1, 1), float3(0.7f, 0.7f, 1), p.y) * brightness + sunBrightness * 50000;
             }
             ", skyEnvMap.Dimensions, skyEnvMap.RTV, null, null);
 

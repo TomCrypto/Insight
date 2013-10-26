@@ -16,7 +16,7 @@ model models/ground.obj Ground
 	t 0 -15.35 0
 
 model models/skydome.obj Sky
-	s 20 20 20
+	s 150 150 150
 	r 0 0 0
 	t 0 -15.35 0
 

@@ -158,13 +158,15 @@ namespace Sample
         {
             PostProcessSteps flags = PostProcessSteps.Triangulate
                                    | PostProcessSteps.OptimizeMeshes
-                                   | PostProcessSteps.GenerateNormals
                                    | PostProcessSteps.GenerateUVCoords
                                    | PostProcessSteps.FixInFacingNormals
-                                   | PostProcessSteps.CalculateTangentSpace;
+                                   | PostProcessSteps.CalculateTangentSpace
+                                   | PostProcessSteps.GenerateSmoothNormals;
 
             using (AssimpImporter importer = new AssimpImporter())
             {
+                Console.WriteLine("Loading model " + fileName);
+
                 var data = importer.ImportFile(fileName, flags);
 
                 foreach (var mesh in data.Meshes)
@@ -172,15 +174,33 @@ namespace Sample
                     List<Vertex> geometry = new List<Vertex>(mesh.FaceCount * 3);
                     String meshName = data.Materials[mesh.MaterialIndex].Name;
 
+                    Console.WriteLine("Loading mesh " + meshName);
+
+                    if (!mesh.HasTextureCoords(0))
+                    {
+                        Console.WriteLine("INFO: Mesh has no UV's. This is perfectly fine if the material does not use textures.");
+                    }
+
                     foreach (var face in mesh.Faces)
                     {
                         for (int t = 0; t < face.IndexCount; ++t)
                         {
-                            geometry.Add(new Vertex(mesh.Vertices[face.Indices[t]],
-                                                    mesh.Normals[face.Indices[t]],
-                                                    mesh.Tangents[face.Indices[t]],
-                                                    mesh.BiTangents[face.Indices[t]],
-                                                    mesh.GetTextureCoords(0)[face.Indices[t]]));
+                            if (!mesh.HasTextureCoords(0))
+                            {
+                                geometry.Add(new Vertex(mesh.Vertices[face.Indices[t]],
+                                                        mesh.Normals[face.Indices[t]],
+                                                        new Vector3D(0, 0, 0),
+                                                        new Vector3D(0, 0, 0),
+                                                        new Vector3D(0, 0, 0)));
+                            }
+                            else
+                            {
+                                geometry.Add(new Vertex(mesh.Vertices[face.Indices[t]],
+                                                        mesh.Normals[face.Indices[t]],
+                                                        mesh.Tangents[face.Indices[t]],
+                                                        mesh.BiTangents[face.Indices[t]],
+                                                        mesh.GetTextureCoords(0)[face.Indices[t]]));
+                            }
                         }
                     }
 
@@ -212,7 +232,7 @@ namespace Sample
             {
                 if (!materials.ContainsKey(mesh.MeshName))
                 {
-                    Console.WriteLine("WARNING: " + mesh.MeshName + " has no material! Skipping...");
+                    //Console.WriteLine("WARNING: " + mesh.MeshName + " has no material! Skipping...");
                     continue;
                 }
 

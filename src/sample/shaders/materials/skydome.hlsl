@@ -22,7 +22,7 @@ SamplerState texSampler;
 struct Pixel
 {
 	float4 pos : SV_POSITION;
-	float4 pos3D:  COLOR0;
+	float4 pos3D:  TEXCOORD1;
 	float3 normal: NORMAL0;
 	float3 tangent: TANGENT0;
 	float3 bitangent: BINORMAL0;
@@ -31,20 +31,10 @@ struct Pixel
 
 float3 main(Pixel input) : SV_Target
 {
-	float3 p = normalize(input.pos3D.xyz);
+	float3 r = normalize(input.pos3D.xyz);
 
-	float h = p.y; // estimated vertical location on skydome
-	float l = p.x;
+	float phi = atan2(r.z, r.x);
+	float theta = acos(r.y);
 
-	float sunBrightness = (dot(p, normalize(float3(-0.5f, 0.8f, 0.9f))) > 0.9995f) ? 1 : 0;
-
-	float2 uv = float2(p.xz * 0.5 + 0.5);
-
-	float3 skySample = sky.Sample(texSampler, p.xz * 0.5 + 0.5) * brightness;
-
-	//float3 skySample = float3(1, 0, 0) * input.pos3D.x;
-
-	//return lerp(float3(1, 1, 1), float3(0.7f, 0.7f, 1), h) * brightness + sunBrightness * 17500;
-
-	return skySample;// + sunBrightness * 17500;
+	return sky.Sample(texSampler, float2(phi / (2 * 3.14159265), theta / 3.14159265)) * brightness;
 }

@@ -24,7 +24,7 @@ SamplerState texSampler;
 struct Pixel
 {
 	float4 pos : SV_POSITION;
-	float4 pos3D:  COLOR0;
+	float4 pos3D:  TEXCOORD1;
 	float3 normal: NORMAL0;
 	float3 tangent: TANGENT0;
 	float3 bitangent: BINORMAL0;
@@ -40,25 +40,18 @@ float3 main(Pixel input) : SV_Target
 	float3 normal = mul(texNormal, tbn);
 	normal = normalize(mul(float4(normal, 1), model)).xyz;
 
-	float3 lightPos = float3(-50, 0, 0);
+	float3 lightPos = float3(-21, -5.4, 0.6);
 
 	float3 lightDir = (input.pos3D.xyz - lightPos);
 	float falloff = length(lightDir);
 	lightDir /= falloff;
 	falloff = pow(falloff, 2);
 
-	float lightBrightness = 10000;
+	float lightBrightness = 1500;
 
-	float diffuse = 2 * max(0, dot(lightDir, normal) * lightBrightness) / falloff;
+	float diffuse = max(0, dot(lightDir, normal) * lightBrightness) / falloff;
 
-	float ambient = 0.10;
+	float ambient = 0.45;
 
-	float3 viewDir = normalize(camPos.xyz - input.pos3D.xyz);
-
-	float3 reflected = normalize(reflect(lightDir, normal));
-	float specular = 10 * lightBrightness * pow(max(0, dot(viewDir, reflected)), 256) / falloff;
-
-
-
-	return color.Sample(texSampler, input.tex.xy).xyz * (diffuse + specular + ambient);
+	return color.Sample(texSampler, input.tex.xy * 500).xyz * (diffuse + ambient);
 }

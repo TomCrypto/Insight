@@ -39,7 +39,7 @@ struct Vertex
 struct Pixel
 {
 	float4 pos : SV_POSITION;
-	float4 pos3D:  COLOR0;
+	float4 pos3D:  POSITION1;
 	float3 normal: NORMAL0;
 	float3 tangent: TANGENT0;
 	float3 bitangent: BINORMAL0;
@@ -50,7 +50,7 @@ Pixel main(Vertex input)
 {
    Pixel output;
 
-   output.pos3D = mul(input.pos, model);
+   output.pos3D = float4(mul(input.pos, model).xyz, 1);
    output.pos   = mul(output.pos3D, view);
 
    output.normal = input.normal;

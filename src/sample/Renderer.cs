@@ -153,13 +153,13 @@ namespace Sample
                 /* Configuration options go below. */
 
                 mainBar.AddFloat("gamma", "Gamma", "General", 1, 3, 2.2, 0.05, 3, "Gamma response to calibrate to the monitor.");
-                mainBar.AddFloat("exposure", "Exposure", "General", 0.01, 1.5, 0.015, 0.005, 3, "Exposure level at which to render the scene.");
+                mainBar.AddFloat("exposure", "Exposure", "General", 0.001, 1.5, 0.001, 0.001, 3, "Exposure level at which to render the scene.");
                 mainBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
                 mainBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality, 1, "The quality of the diffraction effects (from 1 to 4).");
                 mainBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to simulate the aperture.");
 
-                mainBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.05, 2, "The sensitivity of mouse rotation.");
-                mainBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.05, 2, "The sensitivity of keyboard movement.");
+                mainBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.01, 2, "The sensitivity of mouse rotation.");
+                mainBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.01, 2, "The sensitivity of keyboard movement.");
 
                 mainBar.AddFloat("field_of_view", "Field Of View", "Navigation", 10, 120, 75, 1, 2, "The sensitivity of keyboard movement.");
 

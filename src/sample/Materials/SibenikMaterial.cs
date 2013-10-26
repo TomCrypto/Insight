@@ -11,7 +11,7 @@ namespace Sample
         /// <summary>
         /// Size in bytes of the material buffer.
         /// </summary>
-        private static int BufferSize = 64;
+        private static int BufferSize = 80;
 
         public Color3 Diffuse
         {
@@ -38,6 +38,8 @@ namespace Sample
         }
 
         public String ColorMap { get; set; }
+
+        public String BumpMap { get; set; }
 
         private Buffer constantBuffer;
 
@@ -80,6 +82,7 @@ namespace Sample
                 stream.Write<Vector4>(new Vector4(Specular, 1));
                 stream.Write<Vector4>(new Vector4((float)Shininess, (float)Shininess, (float)Shininess, (float)Shininess));
                 stream.Write<Vector4>(new Vector4((float)Brightness, (float)Brightness, (float)Brightness, (float)Brightness));
+                stream.Write<Boolean>(BumpMap != null);
                 Material.CopyStream(context, constantBuffer, stream);
             }
 
@@ -87,6 +90,7 @@ namespace Sample
             context.PixelShader.SetSampler(0, sampler);
             context.PixelShader.SetConstantBuffer(2, constantBuffer);
             context.PixelShader.SetShaderResource(1, proxy[ColorMap]);
+            context.PixelShader.SetShaderResource(2, proxy[BumpMap]);
         }
 
         protected override void Dispose(bool disposing)

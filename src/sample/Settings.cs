@@ -24,7 +24,7 @@ namespace Sample
         /// <summary> The near plane. </summary>
         static public float nearPlane = 0.1f;
         /// <summary> The movement sensitivity factor. </summary>
-        static public float movementSensitivity = 0.1f;
+        static public float movementSensitivity = 0.5f;
         /// <summary> The rotation sensitivity factor. </summary>
         static public float rotationSensitivity = 2.0f;
         /// <summary> The initial camera position.</summary>
