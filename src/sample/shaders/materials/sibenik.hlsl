@@ -21,15 +21,17 @@ cbuffer material : register(b2)
 
 SamplerState texSampler;
 
-struct PixelIn
+struct Pixel
 {
 	float4 pos : SV_POSITION;
 	float4 pos3D:  COLOR0;
-	float4 normal: TEXCOORD1;
+	float3 normal: NORMAL0;
+	float3 tangent: TANGENT0;
+	float3 bitangent: BINORMAL0;
 	float4 tex: TEXCOORD0;
 };
 
-float3 main(PixelIn input) : SV_Target
+float3 main(Pixel input) : SV_Target
 {
 	float4 col = color.Sample(texSampler, input.tex.xy);
 

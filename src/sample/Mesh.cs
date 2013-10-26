@@ -32,24 +32,24 @@ namespace Sample
         /// </summary>
         /// <param name="device">The device to use.</param>
         /// <param name="name">The name of the mesh.</param>
-        /// <param name="faces">The list of triangles in the mesh.</param>
-        public Mesh(Device device, String name, List<Triangle> faces)
+        /// <param name="geometry">The list of vertices in the mesh.</param>
+        public Mesh(Device device, String name, List<Vertex> geometry)
         {
-            using (DataStream triangleStream = new DataStream(Triangle.Size() * faces.Count, false, true))
+            using (DataStream vertexStream = new DataStream(Vertex.Size * geometry.Count, false, true))
             {
-                foreach (Triangle triangle in faces) triangle.WriteTo(triangleStream);
-                triangleStream.Position = 0;
+                foreach (Vertex vertex in geometry) vertex.WriteTo(vertexStream);
+                vertexStream.Position = 0;
 
                 BufferDescription description = new BufferDescription()
                 {
                     Usage = ResourceUsage.Immutable,
                     BindFlags = BindFlags.VertexBuffer,
                     CpuAccessFlags = CpuAccessFlags.None,
-                    SizeInBytes = Triangle.Size() * faces.Count,
+                    SizeInBytes = Vertex.Size * geometry.Count,
                 };
 
-                vertices = new Buffer(device, triangleStream, description);
-                vertexBuffer = new VertexBufferBinding(vertices, Triangle.Size() / 3, 0);
+                vertices = new Buffer(device, vertexStream, description);
+                vertexBuffer = new VertexBufferBinding(vertices, Vertex.Size, 0);
             }
 
             MeshName = name;

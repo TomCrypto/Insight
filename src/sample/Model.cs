@@ -7,86 +7,91 @@ using SharpDX.Direct3D11;
 using Device = SharpDX.Direct3D11.Device;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
+using Assimp;
+
 namespace Sample
 {
     /// <summary>
-    /// Represents a 3D triangle.
+    /// A vertex class containing position, texture
+    /// coordinates, and normal/tangent/bitangent.
     /// </summary>
-    class Triangle
+    class Vertex
     {
-        private Vector3 v1, v2, v3, n1, n2, n3, t1, t2, t3;
+        /// <summary>
+        /// Position of the vertex.
+        /// </summary>
+        public Vector3 Pos { get; private set; }
 
         /// <summary>
-        /// Creates a new triangle instance.
+        /// Surface normal at the vertex.
         /// </summary>
-        /// <param name="v1">1st vertex position.</param>
-        /// <param name="v2">2nd vertex position.</param>
-        /// <param name="v3">3rd vertex position.</param>
-        /// <param name="n1">1st vertex normal.</param>
-        /// <param name="n2">2nd vertex normal.</param>
-        /// <param name="n3">3rd vertex normal.</param>
-        /// <param name="t1">1st texture coordinates.</param>
-        /// <param name="t2">2nd texture coordinates.</param>
-        /// <param name="t3">3rd texture coordinates.</param>
-        public Triangle(Vector3 v1, Vector3 v2, Vector3 v3,
-                        Vector3 n1, Vector3 n2, Vector3 n3,
-                        Vector3 t1, Vector3 t2, Vector3 t3)
+        public Vector3 Nml { get; private set; }
+
+        /// <summary>
+        /// Surface tangent of the vertex.
+        /// </summary>
+        public Vector3 Tan { get; private set; }
+
+        /// <summary>
+        /// Surface bitangent of the vertex.
+        /// </summary>
+        public Vector3 Btn { get; private set; }
+
+        /// <summary>
+        /// Texture coordinates at the vertex.
+        /// </summary>
+        public Vector3 Tex { get; private set; }
+
+        /// <summary>
+        /// Creates a Vertex from vertex data
+        /// imported by Assimp from a mesh.
+        /// </summary>
+        /// <param name="pos">Vertex position.</param>
+        /// <param name="nml">Vertex normal.</param>
+        /// <param name="tan">Vertex tangent.</param>
+        /// <param name="btn">Vertex bitangent.</param>
+        /// <param name="tex">Vertex texture coordinates.</param>
+        public Vertex(Vector3D pos,
+                      Vector3D nml,
+                      Vector3D tan,
+                      Vector3D btn,
+                      Vector3D tex)
         {
-            this.v1 = v1;
-            this.v2 = v2;
-            this.v3 = v3;
+            Pos = ToVector3(pos);
+            Nml = ToVector3(nml);
+            Tan = ToVector3(tan);
+            Btn = ToVector3(btn);
+            Tex = ToVector3(tex);
+        }
 
-            this.n1 = n1;
-            this.n2 = n2;
-            this.n3 = n3;
-
-            this.t1 = t1;
-            this.t2 = t2;
-            this.t3 = t3;
+        private static Vector3 ToVector3(Assimp.Vector3D u)
+        {
+            return new Vector3(u.X, u.Y, u.Z);
         }
 
         /// <summary>
-        /// Computes a vertex normal from a list of face normals
-        /// from all triangles adjacent to said vertex.
+        /// Writes the texture to a DataStream.
         /// </summary>
-        /// <param name="faceNormals">Adjacent face normals.</param>
-        /// <returns>The estimated vertex normal.</returns>
-        public static Vector3 ComputeNormal(List<Vector3> faceNormals)
-        {
-            Vector3 avg = Vector3.Zero;
-
-            foreach (Vector3 faceNormal in faceNormals)
-            {
-                avg = Vector3.Add(avg, faceNormal);
-            }
-            
-            return Vector3.Normalize(avg);
-        }
-
-        /// <summary>
-        /// Writes this Triangle instance to a stream, as v1/n1/t1 - v2/n2/t2 - v3/n3/t3 with 4-component vectors.
-        /// </summary>
-        /// <param name="stream">The stream (at the correct position) to which to write the triangle.</param>
+        /// <param name="stream">The stream to write the vertex to.</param>
         public void WriteTo(DataStream stream)
         {
-            stream.Write<Vector4>(new Vector4(v1, 1.0f));
-            stream.Write<Vector4>(new Vector4(n1, 1.0f));
-            stream.Write<Vector4>(new Vector4(t1, 1.0f));
-            stream.Write<Vector4>(new Vector4(v2, 1.0f));
-            stream.Write<Vector4>(new Vector4(n2, 1.0f));
-            stream.Write<Vector4>(new Vector4(t2, 1.0f));
-            stream.Write<Vector4>(new Vector4(v3, 1.0f));
-            stream.Write<Vector4>(new Vector4(n3, 1.0f));
-            stream.Write<Vector4>(new Vector4(t3, 1.0f));
+            stream.Write<Vector4>(new Vector4(Pos, 1));
+            stream.Write<Vector4>(new Vector4(Nml, 1));
+            stream.Write<Vector4>(new Vector4(Tan, 1));
+            stream.Write<Vector4>(new Vector4(Btn, 1));
+            stream.Write<Vector4>(new Vector4(Tex, 1));
         }
 
         /// <summary>
-        /// Returns the size, in bytes, that a triangle will take in the vertex buffer.
+        /// Gets the size, in bytes, that a vertex
+        /// will take in the vertex buffer.
         /// </summary>
-        /// <returns>Size of a Triangle instance, in bytes.</returns>
-        public static int Size()
+        public static int Size
         {
-            return (sizeof(float) * 4) * 3 * 3;
+            get
+            {
+                return Vector4.SizeInBytes * 5;
+            }
         }
     }
 
@@ -123,7 +128,7 @@ namespace Sample
         /// <param name="modelName">The model name.</param>
         public Model(Device device, String modelName)
         {
-            LoadModel(device, File.ReadLines(modelName));
+            LoadModel(device, modelName);
 
             Scale = Vector3.One;
             Rotation = Vector3.Zero;
@@ -139,135 +144,48 @@ namespace Sample
             });
         }
 
-        private void LoadModel(Device device, IEnumerable<String> geometry)
+        private Vector3 ToVector3(Assimp.Vector3D v)
         {
-            /* Step 1 -- Parse every vertex (+ UV's) of the model into a list. */
+            return new Vector3(v.X, v.Y, v.Z);
+        }
 
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector3> texCoord = new List<Vector3>();
+        private Vector2 ToVector2(Assimp.Vector3D v)
+        {
+            return new Vector2(v.X, v.Y);
+        }
 
-            foreach (String line in geometry)
+        private void LoadModel(Device device, String fileName)
+        {
+            PostProcessSteps flags = PostProcessSteps.Triangulate
+                                   | PostProcessSteps.OptimizeMeshes
+                                   | PostProcessSteps.GenerateNormals
+                                   | PostProcessSteps.GenerateUVCoords
+                                   | PostProcessSteps.FixInFacingNormals
+                                   | PostProcessSteps.CalculateTangentSpace;
+
+            using (AssimpImporter importer = new AssimpImporter())
             {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); if (tokens.Length < 1) continue;
-                if (tokens[0].Equals("v"))
+                var data = importer.ImportFile(fileName, flags);
+
+                foreach (var mesh in data.Meshes)
                 {
-                    if (tokens.Length < 4) continue;
-                    vertices.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), Single.Parse(tokens[3])));
-                }
+                    List<Vertex> geometry = new List<Vertex>(mesh.FaceCount * 3);
+                    String meshName = data.Materials[mesh.MaterialIndex].Name;
 
-                if (tokens[0].Equals("vt"))
-                {
-                    if (tokens.Length < 3) continue;
-                    texCoord.Add(new Vector3(Single.Parse(tokens[1]), Single.Parse(tokens[2]), (tokens.Length == 3 ? 0 : Single.Parse(tokens[3]))));
-                }
-            }
-
-            /* Step 2 -- Find every triangle adjacent to any vertex. */
-
-            Dictionary<Int32, List<Vector3>> adjacency = new Dictionary<Int32, List<Vector3>>();
-            for (int t = 0; t < vertices.Count; ++t) adjacency.Add(t, new List<Vector3>());
-
-            foreach (String line in geometry)
-            {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length < 4) continue;
-                if (tokens[0].Equals("f"))
-                {
-                    int i1 = Int32.Parse(tokens[1].Split('/')[0]) - 1;
-                    int i2 = Int32.Parse(tokens[2].Split('/')[0]) - 1;
-                    int i3 = Int32.Parse(tokens[3].Split('/')[0]) - 1;
-
-                    Vector3 v1 = vertices[i1];
-                    Vector3 v2 = vertices[i2];
-                    Vector3 v3 = vertices[i3];
-
-                    Vector3 normal = Vector3.Cross(Vector3.Subtract(v2, v1), Vector3.Subtract(v3, v1));
-
-                    adjacency[i1].Add(normal);
-                    adjacency[i2].Add(normal);
-                    adjacency[i3].Add(normal);
-                }
-            }
-
-            /* Step 3 -- Derive vertex normals using adjacency information. */
-
-            List<Vector3> normals = new List<Vector3>();
-
-            for (int t = 0; t < vertices.Count; ++t)
-                normals.Add(Triangle.ComputeNormal(adjacency[t]));
-
-            /* Step 4 -- Locate each mesh and extract its triangle list. */
-
-            Dictionary<String, List<Triangle>> meshFaces = new Dictionary<String, List<Triangle>>();
-
-            foreach (String line in geometry)
-            {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length < 2) continue;
-                if (tokens[0].Equals("usemtl"))
-                    if (!meshFaces.ContainsKey(tokens[1]))
-                        meshFaces.Add(tokens[1], new List<Triangle>());
-            }
-
-            String currentMesh = "";
-
-            foreach (String line in geometry)
-            {
-                string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length < 1) continue;
-
-                if (tokens[0].Equals("usemtl"))
-                {
-                    if (tokens.Length < 2) continue;
-                    currentMesh = tokens[1];
-                }
-                else if (tokens[0].Equals("f"))
-                {
-                    if (tokens.Length == 4) // Triangle face
+                    foreach (var face in mesh.Faces)
                     {
-                        int v1 = Int32.Parse(tokens[1].Split('/')[0]) - 1;
-                        int v2 = Int32.Parse(tokens[2].Split('/')[0]) - 1;
-                        int v3 = Int32.Parse(tokens[3].Split('/')[0]) - 1;
-
-                        int t1 = Int32.Parse(tokens[1].Split('/')[1]) - 1;
-                        int t2 = Int32.Parse(tokens[2].Split('/')[1]) - 1;
-                        int t3 = Int32.Parse(tokens[3].Split('/')[1]) - 1;
-
-                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
-                                                                     normals[v1],  normals[v2],  normals[v3],
-                                                                    texCoord[t1], texCoord[t2], texCoord[t3]));
+                        for (int t = 0; t < face.IndexCount; ++t)
+                        {
+                            geometry.Add(new Vertex(mesh.Vertices[face.Indices[t]],
+                                                    mesh.Normals[face.Indices[t]],
+                                                    mesh.Tangents[face.Indices[t]],
+                                                    mesh.BiTangents[face.Indices[t]],
+                                                    mesh.GetTextureCoords(0)[face.Indices[t]]));
+                        }
                     }
-                    else if (tokens.Length == 5) // Quad face
-                    {
-                        int v1 = Int32.Parse(tokens[1].Split('/')[0]) - 1;
-                        int v2 = Int32.Parse(tokens[2].Split('/')[0]) - 1;
-                        int v3 = Int32.Parse(tokens[3].Split('/')[0]) - 1;
-                        int v4 = Int32.Parse(tokens[4].Split('/')[0]) - 1;
 
-                        int t1 = Int32.Parse(tokens[1].Split('/')[1]) - 1;
-                        int t2 = Int32.Parse(tokens[2].Split('/')[1]) - 1;
-                        int t3 = Int32.Parse(tokens[3].Split('/')[1]) - 1;
-                        int t4 = Int32.Parse(tokens[4].Split('/')[1]) - 1;
-
-                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v2], vertices[v3],
-                                                                     normals[v1],  normals[v2],  normals[v3],
-                                                                    texCoord[t1], texCoord[t2], texCoord[t3]));
-
-                        meshFaces[currentMesh].Add(new Triangle(vertices[v1], vertices[v3], vertices[v4],
-                                                                     normals[v1],  normals[v3],  normals[v4],
-                                                                    texCoord[t1], texCoord[t3], texCoord[t4]));
-                    }
+                    meshes.Add(new Mesh(device, meshName, geometry));
                 }
-            }
-
-            /* Step 5 -- Create each mesh instance from mesh name and faces. */
-
-            foreach (String meshName in meshFaces.Keys)
-            {
-                if (meshName.Equals("sprljci")) continue; // temporary
-                if (meshName.Equals("staklo")) continue; // temporary
-
-                meshes.Add(new Mesh(device, meshName, meshFaces[meshName]));
             }
         }
 
@@ -292,6 +210,12 @@ namespace Sample
 
             foreach (Mesh mesh in meshes)
             {
+                if (!materials.ContainsKey(mesh.MeshName))
+                {
+                    Console.WriteLine("WARNING: " + mesh.MeshName + " has no material! Skipping...");
+                    continue;
+                }
+
                 Material material = materials[mesh.MeshName];
                 material.BindMaterial(context, proxy);
                 mesh.Render(context);

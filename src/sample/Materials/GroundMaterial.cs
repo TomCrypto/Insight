@@ -21,6 +21,8 @@ namespace Sample
 
         public String ColorMap { get; set; }
 
+        public String BumpMap { get; set; }
+
         private Buffer constantBuffer;
 
         private PixelShader pixelShader;
@@ -63,6 +65,7 @@ namespace Sample
             context.PixelShader.SetSampler(0, sampler);
             context.PixelShader.SetConstantBuffer(2, constantBuffer);
             context.PixelShader.SetShaderResource(1, proxy[ColorMap]);
+            context.PixelShader.SetShaderResource(2, proxy[BumpMap]);
         }
 
         protected override void Dispose(bool disposing)

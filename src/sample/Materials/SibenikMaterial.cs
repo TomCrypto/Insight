@@ -51,7 +51,7 @@ namespace Sample
             bar.AddColor(Prefix + "diffuse", "Diffuse", name, new Color3(1, 1, 1));
             bar.AddColor(Prefix + "specular", "Specular", name, new Color3(1, 1, 1));
             bar.AddFloat(Prefix + "shininess", "Shininess", name, 1, 256, 64, 0.1, 2);
-            bar.AddFloat(Prefix + "brightness", "Brightness", name, 0, 25, 5, 0.1, 2);
+            bar.AddFloat(Prefix + "brightness", "Brightness", name, 0, 15000, 5, 50, 2);
 
             pixelShader = Material.CompileShader(device, "sibenik");
 

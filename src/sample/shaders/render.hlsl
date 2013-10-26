@@ -31,6 +31,8 @@ struct Vertex
 {
 	float4 pos : POSITION;
 	float4 normal: NORMAL0;
+	float4 tangent: TANGENT0;
+	float4 bitangent: BINORMAL0;
 	float4 tex: TEXCOORD0;
 };
 
@@ -38,7 +40,9 @@ struct Pixel
 {
 	float4 pos : SV_POSITION;
 	float4 pos3D:  COLOR0;
-	float4 normal: TEXCOORD1;
+	float3 normal: NORMAL0;
+	float3 tangent: TANGENT0;
+	float3 bitangent: BINORMAL0;
 	float4 tex: TEXCOORD0;
 };
 
@@ -48,7 +52,11 @@ Pixel main(Vertex input)
 
    output.pos3D = mul(input.pos, model);
    output.pos   = mul(output.pos3D, view);
-   output.normal = input.normal; /* ??? */
+
+   output.normal = input.normal;
+   output.tangent = input.tangent;
+   output.bitangent = input.bitangent;
+
    output.tex = input.tex;
    
    return output;

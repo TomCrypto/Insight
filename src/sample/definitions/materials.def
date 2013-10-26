@@ -16,24 +16,25 @@
 
 mtl ground Ground Sample.GroundMaterial show
 	float Albedo = 2
-	string ColorMap = textures/grass.jpg
+	string ColorMap = textures/ColorMap.png
+	string BumpMap = textures/NormalMap.png
 
 mtl skydome Sky Sample.SkyMaterial show
 	float Brightness = 1
 
-mtl sprljci Cathedral1 Sample.SibenikMaterial hide
-	color3 Diffuse = 0.784314 0.784314 0.784314
-	color3 Specular = 0 0 0
-	float Brightness = 20
-	float Shininess = 8
-	string ColorMap = textures/sky.png
+#mtl sprljci Cathedral1 Sample.SibenikMaterial hide
+#	color3 Diffuse = 0.784314 0.784314 0.784314
+#	color3 Specular = 0 0 0
+#	float Brightness = 20
+#	float Shininess = 8
+#	string ColorMap = textures/sky.png
 
-mtl staklo Cathedral2 Sample.SibenikMaterial show
-	color3 Diffuse = 0.784314 0.784314 0.784314
-	color3 Specular = 0.784314 0.784314 0.784314
-	float Brightness = 2000
-	float Shininess = 256
-	string ColorMap = textures/sky.png
+#mtl staklo Windows Sample.SibenikMaterial show
+#	color3 Diffuse = 0.784314 0.784314 0.784314
+#	color3 Specular = 0.784314 0.784314 0.784314
+#	float Brightness = 2000
+#	float Shininess = 256
+#	string ColorMap = textures/sky.png
 
 mtl kamen_zid Cathedral3 Sample.SibenikMaterial hide
 	color3 Diffuse = 0.784314 0.784314 0.784314

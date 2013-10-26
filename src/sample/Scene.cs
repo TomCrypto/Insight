@@ -122,7 +122,9 @@ namespace Sample
         {
             InputElement[] VertexLayout = new[] { new InputElement("POSITION", 0, Format.R32G32B32A32_Float,  0, 0),
                                                   new InputElement("NORMAL",   0, Format.R32G32B32A32_Float, 16, 0),
-                                                  new InputElement("TEXCOORD", 0, Format.R32G32B32A32_Float, 32, 0) };
+                                                  new InputElement("TANGENT",   0, Format.R32G32B32A32_Float, 32, 0),
+                                                  new InputElement("BINORMAL",   0, Format.R32G32B32A32_Float, 48, 0),
+                                                  new InputElement("TEXCOORD", 0, Format.R32G32B32A32_Float, 64, 0) };
 
             String shader = File.ReadAllText("shaders/render.hlsl");
             using (ShaderBytecode bytecode = ShaderBytecode.Compile(shader, "main", "vs_5_0"))
