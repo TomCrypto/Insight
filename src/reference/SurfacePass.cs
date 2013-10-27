@@ -96,11 +96,7 @@ struct PixelDefinition
         private void SetupVertexShader(Device device)
         {
             String vertexShader = @"
-struct PixelDefinition
-{
-    float4 pos : SV_POSITION;
-    float2 tex :    TEXCOORD;
-};
+#include <surface_pass>
  
 PixelDefinition main(uint id : SV_VertexID)
 {
@@ -112,7 +108,7 @@ PixelDefinition main(uint id : SV_VertexID)
     return output;
 }";
 
-            using (ShaderBytecode bytecode = ShaderBytecode.Compile(vertexShader, "main", "vs_5_0", ShaderParams))
+            using (ShaderBytecode bytecode = ShaderBytecode.Compile(vertexShader, "main", "vs_5_0", ShaderParams, EffectFlags.None, null, includeHandler))
             {
                 quadVertexShader = new VertexShader(device, bytecode);
             }

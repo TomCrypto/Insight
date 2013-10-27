@@ -132,22 +132,18 @@ namespace Insight
             //    throw new ArgumentException("Source texture must be the same dimensions as diffraction resolution.");
 
             pass.Pass(context, @"                                                                                       /* 1. Transcode source texture into input FFT buffer. */
+            #include <surface_pass>
+
             Texture2D<float>    gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float main(PS_IN input) : SV_Target
+            float main(PixelDefinition pixel) : SV_Target
             {
                 uint w, h, m;
 
                 gTex.GetDimensions(0, w, h, m);
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
+	            uint x = uint(pixel.tex.x * w);
+	            uint y = uint(pixel.tex.y * h);
                 uint index = (y * w + x) << 3U;
 
                 float2 value = float2(gTex.Load(int3(x, y, 0)), 0);
@@ -165,6 +161,8 @@ namespace Insight
             UnorderedAccessView fftView = fft.ForwardTransform(buffer.view);
 
             pass.Pass(context, @"                                                                                       /* 2. Transcode output FFT buffer into transform texture. */
+            #include <surface_pass>
+
             RWByteAddressBuffer buffer : register(u1);
 
             cbuffer constants : register(b0)
@@ -172,16 +170,10 @@ namespace Insight
                 uint w, h;
             }
 
-            struct PS_IN
+            float main(PixelDefinition pixel) : SV_Target
             {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float main(PS_IN input) : SV_Target
-            {
-	            uint x = (uint(input.tex.x * w) + w / 2) % w;
-	            uint y = (uint(input.tex.y * h) + h / 2) % h;
+	            uint x = (uint(pixel.tex.x * w) + w / 2) % w;
+	            uint y = (uint(pixel.tex.y * h) + h / 2) % h;
                 uint index = (y * w + x) << 3U;
 
                 float2 value = asfloat(buffer.Load2(index));
@@ -197,6 +189,8 @@ namespace Insight
             cbuffer.Position = 0;
 
             pass.Pass(context, @"                                                                                       /* 3. Write diffraction spectrum into mipmapped texture. */
+            #include <surface_pass>
+
             Texture2D<float> transform : register(t0);
 
             SamplerState texSampler
@@ -211,12 +205,6 @@ namespace Insight
             {
                 float z; // observation plane distance
             }
-
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
 
             static const uint SPECTRAL_SAMPLES = 80;
             static const float MAX_WAVELENGTH = 775;
@@ -305,14 +293,14 @@ namespace Insight
                 float4(1.000, 0.000, 0.185, 775.0),
             };
 
-            float3 main(PS_IN input) : SV_Target
+            float3 main(PixelDefinition pixel) : SV_Target
             {
                 float3 color = float3(0, 0, 0);
 
                 for (uint t = 0; t < SPECTRAL_SAMPLES; ++t)
                 {
                     float scalingFactor = MAX_WAVELENGTH / (z * colors[t].w);
-                    float2 coords = (input.tex - 0.5f) * scalingFactor + 0.5f;
+                    float2 coords = (pixel.tex - 0.5f) * scalingFactor + 0.5f;
                     color += colors[t].xyz * transform.Sample(texSampler, coords); // add scaling factor here??
                 }
 
@@ -328,6 +316,8 @@ namespace Insight
             cbuffer.Position = 0;
 
             pass.Pass(context, @"                                                                                       /* 4. Normalize spectrum using lowest mip, and output to destination. */
+            #include <surface_pass>
+
             Texture2D<float3> spectrum : register(t0);
 
             cbuffer constants : register(b0)
@@ -335,21 +325,15 @@ namespace Insight
                 float z; // observation plane distance
             }
 
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
             static const float threshold = 1e-10f; // for removing ultra-low-amplitude background noise
 
-            float3 main(PS_IN input) : SV_Target
+            float3 main(PixelDefinition pixel) : SV_Target
             {
                 uint w, h, maxMips;
                 spectrum.GetDimensions(0, w, h, maxMips);
 
-                uint x = uint(input.tex.x * w);
-                uint y = uint(input.tex.y * h);
+                uint x = uint(pixel.tex.x * w);
+                uint y = uint(pixel.tex.y * h);
 
                 float3 norm = spectrum.Load(int3(0, 0, maxMips - 1)) * (w * h);
                 return max(0, spectrum.Load(int3(x, y, 0)) / norm - threshold) * pow(z, -4);
@@ -465,6 +449,8 @@ namespace Insight
         public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b, bool scaleCorrect)
         {
             pass.Pass(context, @"
+            #include <surface_pass>
+
             Texture2D<float3> gTex : register(u1);
 
             SamplerState texSampler
@@ -475,15 +461,9 @@ namespace Insight
                 AddressV = Border;
             };
 
-            struct PS_IN
+            float3 main(PixelDefinition pixel) : SV_Target
             {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float3 main(PS_IN input) : SV_Target
-            {
-	            return gTex.Sample(texSampler, input.tex);
+	            return gTex.Sample(texSampler, pixel.tex);
             }
             ", staging.Dimensions, staging.RTV, new[] { b }, null);
 
@@ -492,6 +472,8 @@ namespace Insight
             ConvolveChannel(device, context, pass, a, staging.SRV, bConvolved, "z");
 
             pass.Pass(context, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
+            #include <surface_pass>
+
             Texture2D<float> rTex : register(t0);
             Texture2D<float> gTex : register(t1);
             Texture2D<float> bTex : register(t2);
@@ -505,21 +487,15 @@ namespace Insight
                 AddressV = Border;
             };
 
-            struct PS_IN
+            float3 main(PixelDefinition pixel) : SV_Target
             {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float3 main(PS_IN input) : SV_Target
-            {
-                float2 offset = (input.tex + 0.5) / 2;
+                float2 offset = (pixel.tex + 0.5) / 2;
 
                 float r = rTex.Sample(texSampler, offset);
                 float g = gTex.Sample(texSampler, offset);
                 float b = bTex.Sample(texSampler, offset);
 
-                return float3(r, g, b) + tex.Sample(texSampler, input.tex);
+                return float3(r, g, b) + tex.Sample(texSampler, pixel.tex);
             }
             ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, scaleCorrect ? b : null }, null); // TODO: better resizing later
         }
@@ -534,6 +510,8 @@ namespace Insight
             cbuffer.Position = 0;
 
             pass.Pass(context, @"
+            #include <surface_pass>
+
             Texture2D<float3>   gTex : register(t0);
             RWByteAddressBuffer dest : register(u1);
 
@@ -542,16 +520,10 @@ namespace Insight
                 uint w, h;
             }
 
-            struct PS_IN
+            float main(PixelDefinition pixel) : SV_Target
             {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float main(PS_IN input) : SV_Target
-            {
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
+	            uint x = uint(pixel.tex.x * w);
+	            uint y = uint(pixel.tex.y * h);
                 uint index = (y * w + x) << 3U;
 
                 float intensity = gTex.Load(int3(x, y, 0))." + channel + @";
@@ -582,6 +554,8 @@ namespace Insight
             cbuffer.Position = 0;
 
             pass.Pass(context, @"                                                                                       /* 3. Pointwise multiply FFT(A) and FFT(B). */
+            #include <surface_pass>
+
             RWByteAddressBuffer bufA : register(u1);
             RWByteAddressBuffer bufB : register(u2);
 
@@ -590,22 +564,16 @@ namespace Insight
                 uint w, h;
             }
 
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
             float2 complex_mul(float2 a, float2 b)
             {
                 return float2(a.x * b.x - a.y * b.y,
                               a.y * b.x + a.x * b.y);
             }
 
-            float main(PS_IN input) : SV_Target
+            float main(PixelDefinition pixel) : SV_Target
             {
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
+	            uint x = uint(pixel.tex.x * w);
+	            uint y = uint(pixel.tex.y * h);
                 uint index = (y * w + x) << 3U;
 
                 float2 valA = asfloat(bufA.Load2(index));
@@ -627,6 +595,8 @@ namespace Insight
             UnorderedAccessView fftView = fft.InverseTransform(tBuf.view);
 
             pass.Pass(context, @"                                                                                       /* 4. Transcode IFFT(FFT(A) · FFT(B)) to texture. */
+            #include <surface_pass>
+
             RWByteAddressBuffer buf : register(u1);
 
             cbuffer constants : register(b0)
@@ -634,16 +604,10 @@ namespace Insight
                 uint w, h;
             }
 
-            struct PS_IN
+            float main(PixelDefinition pixel) : SV_Target
             {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float main(PS_IN input) : SV_Target
-            {
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
+	            uint x = uint(pixel.tex.x * w);
+	            uint y = uint(pixel.tex.y * h);
                 uint index = (y * w + x) << 3U;
 
                 float2 c = asfloat(buf.Load2(index));
