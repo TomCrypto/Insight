@@ -325,7 +325,7 @@ namespace Insight
                 float z; // observation plane distance
             }
 
-            static const float threshold = 1e-10f; // for removing ultra-low-amplitude background noise
+            static const float threshold = 1e-9f; // for removing ultra-low-amplitude background noise
 
             float3 main(PixelDefinition pixel) : SV_Target
             {

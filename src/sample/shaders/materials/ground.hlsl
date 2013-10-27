@@ -24,7 +24,7 @@ SamplerState texSampler;
 struct Pixel
 {
 	float4 pos : SV_POSITION;
-	float4 pos3D:  TEXCOORD1;
+	float4 pos3D:  POSITION1;
 	float3 normal: NORMAL0;
 	float3 tangent: TANGENT0;
 	float3 bitangent: BINORMAL0;

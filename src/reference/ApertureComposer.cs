@@ -1,7 +1,11 @@
 ﻿using System;
+using System.Drawing;
+using System.Collections.Generic;
 
 using SharpDX;
 using SharpDX.Direct3D11;
+
+using Insight.Layers;
 
 namespace Insight
 {
@@ -14,12 +18,44 @@ namespace Insight
     class ApertureComposer : IDisposable
     {
         /// <summary>
+        /// The multiplicative blend state.
+        /// </summary>
+        private BlendState blendState;
+
+        /// <summary>
+        /// A collection of layers to compose the aperture from.
+        /// </summary>
+        private List<ApertureLayer> layers = new List<ApertureLayer>();
+
+        /// <summary>
         /// Creates a new ApertureComposer instance.
         /// </summary>
         /// <param name="device">The graphics device.</param>
         public ApertureComposer(Device device)
         {
-            // do any setup work here
+            BlendStateDescription description = new BlendStateDescription()
+            {
+                 AlphaToCoverageEnable = false,
+                 IndependentBlendEnable = false,
+            };
+
+            description.RenderTarget[0] = new RenderTargetBlendDescription()
+            {
+                IsBlendEnabled = true,
+                SourceBlend = BlendOption.Zero,
+                SourceAlphaBlend = BlendOption.Zero,
+                AlphaBlendOperation = BlendOperation.Add,
+                DestinationAlphaBlend = BlendOption.Zero,
+                DestinationBlend = BlendOption.SourceColor,
+                RenderTargetWriteMask = ColorWriteMaskFlags.Red,
+                BlendOperation = SharpDX.Direct3D11.BlendOperation.Add,
+            };
+
+            blendState = new BlendState(device, description);
+
+            // Instantiate all layers here
+
+            layers.Add(new StructuralLayer());
         }
 
         /// <summary>
@@ -31,31 +67,13 @@ namespace Insight
         /// <param name="pass">A SurfacePass instance to use.</param>
         public void Compose(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass)
         {
-            DataStream cbuffer = new DataStream(4, true, true);
-            cbuffer.Write<float>((float)profile.Glare);
-            cbuffer.Position = 0;
+            context.ClearRenderTargetView(output.RTV, Color4.White);
+            context.OutputMerger.SetBlendState(blendState);
 
-            pass.Pass(context, @"
-            #include <surface_pass>
+            foreach (ApertureLayer layer in layers)
+                layer.ApplyLayer(context, output, profile, pass);
 
-            cbuffer constants : register(b0)
-            {
-                float glare;
-            };
-
-            float main(PixelDefinition pixel) : SV_Target
-            {
-                float2 p = pixel.tex * 2 - 1;
-
-                float f = 1 / (1 - glare);
-
-                if (pow(p.x, 2) + pow(f * p.y, 2) < 0.35 * 0.35) return 1;
-                else return 0;
-            }
-
-            ", output.Dimensions, output.RTV, null, cbuffer);
-
-            cbuffer.Dispose();
+            context.OutputMerger.SetBlendState(null);
         }
         
         #region IDisposable
@@ -81,7 +99,9 @@ namespace Insight
         {
             if (disposing)
             {
-                // TODO add stuff here
+                blendState.Dispose();
+
+                foreach (ApertureLayer layer in layers) layer.Dispose();
             }
         }
 
