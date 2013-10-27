@@ -10,7 +10,7 @@ namespace Insight.Layers
     /// the circular shape of an eye aperture - optionally
     /// with glare.
     /// </summary>
-    class StructuralLayer : ApertureLayer
+    internal class StructuralLayer : ApertureLayer
     {
         public override void ApplyLayer(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass)
         {
