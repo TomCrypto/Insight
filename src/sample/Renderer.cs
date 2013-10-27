@@ -23,7 +23,6 @@ namespace Sample
         private Factory factory;
         private Device device;
 
-        private GraphicsResource intermediate;
         private GraphicsResource hdrBuffer;
         private GraphicsResource ldrBuffer;
         private GraphicsResource resolved;
@@ -72,7 +71,6 @@ namespace Sample
 
         private void InitializeResources(Size dimensions)
         {
-            if (intermediate != null) intermediate.Dispose();
             if (  toneMapper != null) toneMapper.Dispose();
             if (   hdrBuffer != null) hdrBuffer.Dispose();
             if (   ldrBuffer != null) ldrBuffer.Dispose();
@@ -81,7 +79,6 @@ namespace Sample
             swapChain.ResizeBuffers(0, 0, 0, Format.Unknown, SwapChainFlags.None);
 
             toneMapper   = new ToneMapper(device, dimensions, (Double)mainBar["exposure"].Value, (Double)mainBar["gamma"].Value);
-            intermediate = new GraphicsResource(device, dimensions, Format.R32G32B32A32_Float, true, true);
             resolved     = new GraphicsResource(device, dimensions, Format.R32G32B32A32_Float, true, true);
             ldrBuffer    = new GraphicsResource(device, swapChain.GetBackBuffer<Texture2D>(0));
 
@@ -253,12 +250,11 @@ namespace Sample
             /* We were potentially rendering into a multisampled backbuffer, now resolve it to a normal one. */
             context.ResolveSubresource(hdrBuffer.Resource, 0, resolved.Resource, 0, Format.R32G32B32A32_Float);
 
-            /* If we're doing diffraction, render diffraction in that texture, else directly copy into intermediate. */
-            if (!(Boolean)mainBar["diffraction"].Value) context.CopyResource(resolved.Resource, intermediate.Resource);
-            else eyeDiffraction.Render(intermediate.Dimensions, intermediate.RTV, resolved.SRV, Tick());
+            /* If we're doing diffraction, call the right function. Note we are doing rendering in-place into the resolved texture. */
+            if ((Boolean)mainBar["diffraction"].Value) eyeDiffraction.Render(resolved.Dimensions, resolved.RTV, resolved.SRV, Tick());
 
-            /* Finally, tone-map the frame into the low-dynamic-range presentation texture. */
-            toneMapper.ToneMap(context, eyeDiffraction.Pass, ldrBuffer.RTV, intermediate.SRV);
+            /* Finally, tone-map the frame in the low-dynamic-range backbuffer texture. */
+            toneMapper.ToneMap(context, eyeDiffraction.Pass, ldrBuffer.RTV, resolved.SRV);
 
             /* Render bars. */
             TweakBar.Render();
@@ -321,7 +317,6 @@ namespace Sample
             if (disposing)
             {
                 eyeDiffraction.Dispose();
-                intermediate.Dispose();
                 toneMapper.Dispose();
                 ldrBuffer.Dispose();
                 hdrBuffer.Dispose();

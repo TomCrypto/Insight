@@ -119,7 +119,7 @@ PixelDefinition main(uint id : SV_VertexID)
                 AddressU = TextureAddressMode.Border,
                 AddressV = TextureAddressMode.Border,
                 AddressW = TextureAddressMode.Border,
-                Filter = Filter.MinMagMipLinear,
+                Filter = Filter.Anisotropic,
                 BorderColor = Color4.Black,
                 MaximumAnisotropy = 16,
                 MaximumLod = 15,

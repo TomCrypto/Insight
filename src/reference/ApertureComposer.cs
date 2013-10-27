@@ -42,13 +42,16 @@ namespace Insight
             description.RenderTarget[0] = new RenderTargetBlendDescription()
             {
                 IsBlendEnabled = true,
-                SourceBlend = BlendOption.Zero,
-                SourceAlphaBlend = BlendOption.Zero,
-                AlphaBlendOperation = BlendOperation.Add,
-                DestinationAlphaBlend = BlendOption.Zero,
+
+                SourceBlend      = BlendOption.Zero,
                 DestinationBlend = BlendOption.SourceColor,
+                BlendOperation   = BlendOperation.Add,
+                
+                SourceAlphaBlend      = BlendOption.Zero,
+                DestinationAlphaBlend = BlendOption.Zero,
+                AlphaBlendOperation   = BlendOperation.Add,
+
                 RenderTargetWriteMask = ColorWriteMaskFlags.Red,
-                BlendOperation = SharpDX.Direct3D11.BlendOperation.Add,
             };
 
             blendState = new BlendState(device, description);

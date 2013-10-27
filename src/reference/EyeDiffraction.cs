@@ -193,6 +193,9 @@ namespace Insight
         /// <summary>
         /// Superimposes eye diffraction effects on a texture, created with render target
         /// and shader resource bind flags. The texture should have a high dynamic range.
+        /// 
+        /// Note the target and source should point to the same resource (fix API later
+        /// on to enforce that somehow).
         /// </summary>
         /// <param name="renderSize">The dimensions of the render target.</param>
         /// <param name="target">The render target to which to render the output.</param>

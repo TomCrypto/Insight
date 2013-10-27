@@ -406,6 +406,8 @@ namespace Insight
         private FastFourierTransform fft;
         private Size resolution;
 
+        private BlendState blendState;
+
         /// <summary>
         /// Creates a ConvolutionEngine instance.
         /// </summary>
@@ -444,6 +446,31 @@ namespace Insight
             gConvolved = new GraphicsResource(device, resolution, Format.R32_Float, true, true);
             bConvolved = new GraphicsResource(device, resolution, Format.R32_Float, true, true);
             staging    = new GraphicsResource(device, new Size(resolution.Width / 2, resolution.Height / 2), Format.R32G32B32A32_Float, true, true);
+
+            BlendStateDescription description = new BlendStateDescription()
+            {
+                AlphaToCoverageEnable = false,
+                IndependentBlendEnable = false,
+            };
+
+            description.RenderTarget[0] = new RenderTargetBlendDescription()
+            {
+                IsBlendEnabled = true,
+
+                SourceBlend = BlendOption.One,
+                DestinationBlend = BlendOption.One,
+                BlendOperation = BlendOperation.Add,
+
+                SourceAlphaBlend = BlendOption.Zero,
+                DestinationAlphaBlend = BlendOption.Zero,
+                AlphaBlendOperation = BlendOperation.Add,
+
+                RenderTargetWriteMask = ColorWriteMaskFlags.Red
+                                      | ColorWriteMaskFlags.Green
+                                      | ColorWriteMaskFlags.Blue,
+            };
+
+            blendState = new BlendState(device, description);
         }
 
         public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b, bool scaleCorrect)
@@ -471,18 +498,20 @@ namespace Insight
             ConvolveChannel(device, context, pass, a, staging.SRV, gConvolved, "y");
             ConvolveChannel(device, context, pass, a, staging.SRV, bConvolved, "z");
 
+            if (scaleCorrect) context.OutputMerger.SetBlendState(blendState);
+
             pass.Pass(context, @"                                                                                       /* Finally, compose convolved channels into an RGB image. */
             #include <surface_pass>
 
             Texture2D<float> rTex : register(t0);
             Texture2D<float> gTex : register(t1);
             Texture2D<float> bTex : register(t2);
-            Texture2D<float3> tex : register(t3);
 
             SamplerState texSampler
             {
                 BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
+                Filter = MIN_MAG_MIP_ANISOTROPIC;
+                MaxAnisotropy = 16;
                 AddressU = Border;
                 AddressV = Border;
             };
@@ -495,9 +524,11 @@ namespace Insight
                 float g = gTex.Sample(texSampler, offset);
                 float b = bTex.Sample(texSampler, offset);
 
-                return float3(r, g, b) + tex.Sample(texSampler, pixel.tex);
+                return float3(r, g, b);
             }
-            ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, scaleCorrect ? b : null }, null); // TODO: better resizing later
+            ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV }, null); // TODO: better resizing later
+
+            context.OutputMerger.SetBlendState(null);
         }
 
         private void ZeroPad(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel)
@@ -653,6 +684,8 @@ namespace Insight
                     buf.view.Dispose();
                     buf.buffer.Dispose();
                 }
+
+                blendState.Dispose();
 
                 rConvolved.Dispose();
                 gConvolved.Dispose();
