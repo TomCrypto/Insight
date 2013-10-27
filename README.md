@@ -12,7 +12,7 @@ The library is currently a work in progress and is **not** ready for use.
 
 #### Aperture Simulation
 
-✘ No aperture generation capabilities yet (hardcoded static aperture)
+✔ Added initial version of the aperture composition algorithm
 
 #### Diffraction Spectrum
 

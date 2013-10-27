@@ -28,6 +28,7 @@ namespace Sample
         private GraphicsResource ldrBuffer;
         private GraphicsResource resolved;
 
+        private DiffractionOptions options = new DiffractionOptions();
         private OpticalProfile profile = new OpticalProfile();
         private EyeDiffraction eyeDiffraction;
         private ToneMapper toneMapper;
@@ -136,6 +137,16 @@ namespace Sample
             profile.FNumber = (Double)variable.Value;
         }
 
+        private void GlareChange(object sender, Variable variable)
+        {
+            profile.Glare = (Double)variable.Value;
+        }
+
+        private void ScaleCorrectChange(object sender, Variable variable)
+        {
+            options.ScaleCorrection = (Boolean)variable.Value;
+        }
+
         private void FieldOfViewChange(object sender, Variable variable)
         {
             scene.FieldOfView = (float)(Double)variable.Value;
@@ -157,6 +168,9 @@ namespace Sample
                 mainBar.AddBoolean("diffraction", "Enable", "Diffraction", "Yes", "No", true, "Whether to display diffraction effects or not.");
                 mainBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality, 1, "The quality of the diffraction effects (from 1 to 4).");
                 mainBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to simulate the aperture.");
+                mainBar.AddFloat("glare", "Glare", "Diffraction", 0, 1, 0, 0.01, 2);
+
+                mainBar.AddBoolean("scale_correct", "Scale Correction", "Diffraction", "Yes", "No", true);
 
                 mainBar.AddFloat("rotation_sensitivity", "Rotation", "Navigation", 0, 5, Settings.rotationSensitivity, 0.01, 2, "The sensitivity of mouse rotation.");
                 mainBar.AddFloat("movement_sensitivity", "Movement", "Navigation", 0, 1, Settings.movementSensitivity, 0.01, 2, "The sensitivity of keyboard movement.");
@@ -171,6 +185,8 @@ namespace Sample
                 mainBar["gamma"].VariableChange += GammaChange;
 
                 mainBar["fnumber"].VariableChange += FNumberChange;
+                mainBar["glare"].VariableChange += GlareChange;
+                mainBar["scale_correct"].VariableChange += ScaleCorrectChange;
 
                 mainBar["rotation_sensitivity"].VariableChange += RotationChange;
                 mainBar["movement_sensitivity"].VariableChange += MovementChange;
@@ -187,9 +203,10 @@ namespace Sample
             // initialize profile here
 
             profile.FNumber = (Double)mainBar["fnumber"].Value;
+            options.ScaleCorrection = (Boolean)mainBar["scale_correct"].Value;
 
             if (eyeDiffraction != null) eyeDiffraction.Dispose();
-            eyeDiffraction = new EyeDiffraction(device, context, Settings.quality, profile);
+            eyeDiffraction = new EyeDiffraction(device, context, Settings.quality, profile, options);
         }
 
         private void InitializeScene(RenderForm window)

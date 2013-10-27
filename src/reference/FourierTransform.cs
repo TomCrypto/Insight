@@ -462,7 +462,7 @@ namespace Insight
             staging    = new GraphicsResource(device, new Size(resolution.Width / 2, resolution.Height / 2), Format.R32G32B32A32_Float, true, true);
         }
 
-        public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b)
+        public void Convolve(Device device, DeviceContext context, SurfacePass pass, Size renderSize, RenderTargetView destination, ShaderResourceView a, ShaderResourceView b, bool scaleCorrect)
         {
             pass.Pass(context, @"
             Texture2D<float3> gTex : register(u1);
@@ -513,19 +513,6 @@ namespace Insight
 
             float3 main(PS_IN input) : SV_Target
             {
-                /*uint w, h, m;
-
-                rTex.GetDimensions(0, w, h, m);
-	            uint x = uint(input.tex.x * w);
-	            uint y = uint(input.tex.y * h);
-
-                x = (x + w / 2) / 2;
-                y = (y + h / 2) / 2;
-
-                float r = rTex.Load(int3(x, y, 0));
-                float g = gTex.Load(int3(x, y, 0));
-                float b = bTex.Load(int3(x, y, 0));*/
-
                 float2 offset = (input.tex + 0.5) / 2;
 
                 float r = rTex.Sample(texSampler, offset);
@@ -534,7 +521,7 @@ namespace Insight
 
                 return float3(r, g, b) + tex.Sample(texSampler, input.tex);
             }
-            ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, b }, null);
+            ", renderSize, destination, new[] { rConvolved.SRV, gConvolved.SRV, bConvolved.SRV, scaleCorrect ? b : null }, null); // TODO: better resizing later
         }
 
         private void ZeroPad(Device device, DeviceContext context, SurfacePass pass, ShaderResourceView source, UnorderedAccessView target, String channel)

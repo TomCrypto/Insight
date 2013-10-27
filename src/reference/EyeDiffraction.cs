@@ -40,6 +40,24 @@ namespace Insight
     }
 
     /// <summary>
+    /// Contains some miscellaneous settings relating to the algorithms used
+    /// to generate and render diffraction effects. The options available in
+    /// this class are typically trade-offs between performance and quality.
+    /// </summary>
+    public class DiffractionOptions
+    {
+        /// <summary>
+        /// Whether to correct the scaling errors (notably, blurring) occuring
+        /// when rendering diffraction effects on a render target larger than
+        /// the convolution dimensions at the requested quality. If this is set
+        /// to true, then the image will always appear sharp and only the diffraction
+        /// effects will be blurred or blocky, but some effects such as glare blurring
+        /// will be negated.
+        /// </summary>
+        public bool ScaleCorrection;
+    }
+
+    /// <summary>
     /// Describes some of the biological and optical properties of the eye
     /// being simulated, influencing the resulting diffraction effects.
     /// </summary>
@@ -50,6 +68,11 @@ namespace Insight
         /// </summary>
         public double FNumber { get; set; }
 
+        /// <summary>
+        /// Gets or sets the glare factor.
+        /// </summary>
+        public double Glare { get; set; }
+
         // TODO: add a default constructor which sets sensible initial values here
     }
 
@@ -59,6 +82,7 @@ namespace Insight
     public sealed class EyeDiffraction : IDisposable
     {
         private RenderQuality quality;
+        private ApertureComposer composer;
 
         private GraphicsResource aperture;
         private GraphicsResource spectrum;
@@ -67,7 +91,7 @@ namespace Insight
         private ConvolutionEngine convolution;
 
         /// <summary>
-        /// The graphics device used by this LensFlare instance.
+        /// The graphics device used by this EyeDiffraction instance.
         /// </summary>
         public Device Device { get; private set; }
 
@@ -85,6 +109,11 @@ namespace Insight
         /// The optical profile currently used for rendering diffraction effects.
         /// </summary>
         public OpticalProfile Profile { get; set; }
+
+        /// <summary>
+        /// Gets or sets the diffraction options to use.
+        /// </summary>
+        public DiffractionOptions Options { get; set; }
 
         /// <summary>
         /// The current simulation time.
@@ -118,8 +147,6 @@ namespace Insight
                     spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
 
                     quality = value;
-
-                    LoadAperture("aperture" + (DiffractionSize(quality).Width) + ".png"); // TODO: temporary
                 }
             }
         }
@@ -150,47 +177,17 @@ namespace Insight
         /// <param name="context">The device context to use.</param>
         /// <param name="quality">The required render quality.</param>
         /// <param name="profile">The desired optical profile.</param>
-        public EyeDiffraction(Device device, DeviceContext context, RenderQuality quality, OpticalProfile profile)
+        /// <param name="options">The desired diffraction options.</param>
+        public EyeDiffraction(Device device, DeviceContext context, RenderQuality quality, OpticalProfile profile, DiffractionOptions options)
         {
             Pass = new SurfacePass(device);
+            composer = new ApertureComposer(device);
 
             Device = device;            /* Store the device. */
             Context = context;          /* Save the context. */
             Quality = quality;          /* Validate quality. */
             Profile = profile;          /* Use lens profile. */
-        }
-
-        private void LoadAperture(String path)
-        {
-            // TODO: for now just load the aperture from a default image (change this later)
-            Resource defaultAperture = Texture2D.FromFile(Device, path);
-            ShaderResourceView view = new ShaderResourceView(Device, defaultAperture);
-
-            Pass.Pass(Context, @"
-            texture2D source                : register(t0);
-
-            SamplerState texSampler
-            {
-                BorderColor = float4(0, 0, 0, 1);
-                Filter = MIN_MAG_MIP_LINEAR;
-                AddressU = Border;
-                AddressV = Border;
-            };
-
-            struct PS_IN
-            {
-	            float4 pos : SV_POSITION;
-	            float2 tex :    TEXCOORD;
-            };
-
-            float3 main(PS_IN input) : SV_Target
-            {
-                return source.Sample(texSampler, input.tex).xyz;
-            }
-            ", aperture.Dimensions, aperture.RTV, new[] { view }, null);
-
-            view.Dispose();
-            defaultAperture.Dispose();
+            Options = options;          /* Save the options. */
         }
 
         /// <summary>
@@ -203,19 +200,19 @@ namespace Insight
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
         public void Render(Size renderSize, RenderTargetView target, ShaderResourceView source, double dt = 0)
         {
-            // TODO here generate aperture
-
-            Time += dt;
+            composer.Compose(Context, aperture, Profile, Pass);
 
             diffraction.Diffract(Device, Context, Pass, spectrum.Dimensions, spectrum.RTV, aperture.SRV, Profile.FNumber);
 
-            convolution.Convolve(Device, Context, Pass, renderSize, target, spectrum.SRV, source);
+            convolution.Convolve(Device, Context, Pass, renderSize, target, spectrum.SRV, source, Options.ScaleCorrection);
+
+            Time += dt;
         }
 
         #region IDisposable
 
         /// <summary>
-        /// Destroys this LensFlare instance.
+        /// Destroys this EyeDiffraction instance.
         /// </summary>
         ~EyeDiffraction()
         {
@@ -241,6 +238,7 @@ namespace Insight
                 aperture.Dispose();
                 spectrum.Dispose();
 
+                composer.Dispose();
                 Pass.Dispose();
             }
         }
