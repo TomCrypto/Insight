@@ -15,7 +15,7 @@
 //     the luminance of the corresponding pixel, in the CIE color space.   //
 //#########################################################################//
 
-#include <surface_pass>
+#include <pass>
 
 #include "shaders/tonemapper/utils.hlsl"
 

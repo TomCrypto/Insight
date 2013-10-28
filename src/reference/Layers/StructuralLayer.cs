@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 
 using SharpDX;
 using SharpDX.Direct3D11;
@@ -18,25 +19,7 @@ namespace Insight.Layers
             cbuffer.Write<float>((float)profile.Glare);
             cbuffer.Position = 0;
 
-            pass.Pass(context, @"
-            #include <surface_pass>
-
-            cbuffer constants : register(b0)
-            {
-                float glare;
-            };
-
-            float main(PixelDefinition pixel) : SV_Target
-            {
-                float2 p = pixel.tex * 2 - 1;
-
-                float f = 1 / (1 - glare);
-
-                if (pow(p.x, 2) + pow(f * p.y, 2) < 0.35 * 0.35) return 1;
-                else return 0;
-            }
-
-            ", output.Dimensions, output.RTV, null, cbuffer);
+            pass.Pass(context, Encoding.ASCII.GetString(Resources.Structural), output.Dimensions, output.RTV, null, cbuffer);
 
             cbuffer.Dispose();
         }

@@ -21,7 +21,7 @@
 // b0: The exposure level and inverse of gamma correction factor.          //
 //#########################################################################//
 
-#include <surface_pass>
+#include <pass>
 
 #include "shaders/tonemapper/utils.hlsl"
 

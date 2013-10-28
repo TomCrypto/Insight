@@ -22,16 +22,10 @@ namespace Insight
         {
             public Stream Open(IncludeType type, string fileName, Stream stream)
             {
-                if ((type == IncludeType.System) && (fileName == "surface_pass"))
+                if ((type == IncludeType.System) && (fileName == "pass"))
                 {
-                    /* SurfacePass include - give pixel definition. */
-                    return new MemoryStream(Encoding.ASCII.GetBytes(@"
-struct PixelDefinition
-{
-    float4 pos : SV_POSITION;
-    float2 tex :    TEXCOORD;
-};
-                "));
+                    /* Fetch the needed SurfacePass PixelDefinition. */
+                    return new MemoryStream(Resources.PixelDefinition);
                 }
                 else
                 {
@@ -75,7 +69,7 @@ struct PixelDefinition
         {
             rasterizerState = new RasterizerState(device, new RasterizerStateDescription
             {
-                CullMode = CullMode.None,
+                CullMode = CullMode.Back,
                 FillMode = FillMode.Solid,
             });
         }
@@ -84,31 +78,17 @@ struct PixelDefinition
         {
             constantBuffer = new Buffer(device, new BufferDescription()
             {
-                StructureByteStride = 16,
                 Usage = ResourceUsage.Dynamic,
                 SizeInBytes = ConstantBufferSize,
                 BindFlags = BindFlags.ConstantBuffer,
                 CpuAccessFlags = CpuAccessFlags.Write,
-                OptionFlags = ResourceOptionFlags.None,
             });
         }
 
         private void SetupVertexShader(Device device)
         {
-            String vertexShader = @"
-#include <surface_pass>
- 
-PixelDefinition main(uint id : SV_VertexID)
-{
-    PixelDefinition output;
-
-    output.tex = float2((id << 1) & 2, id & 2);
-    output.pos = float4(output.tex * float2(2, -2) + float2(-1, 1), 0, 1);
-
-    return output;
-}";
-
-            using (ShaderBytecode bytecode = ShaderBytecode.Compile(vertexShader, "main", "vs_5_0", ShaderParams, EffectFlags.None, null, includeHandler))
+            using (ShaderBytecode bytecode = ShaderBytecode.Compile(Encoding.ASCII.GetString(Resources.PassVertexShader), "main",
+                                                                    "vs_5_0", ShaderParams, EffectFlags.None, null, includeHandler))
             {
                 quadVertexShader = new VertexShader(device, bytecode);
             }
@@ -130,13 +110,13 @@ PixelDefinition main(uint id : SV_VertexID)
 
         private void ExecuteShaderPass(DeviceContext context)
         {
-            context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+            context.Rasterizer.State = rasterizerState;
             context.VertexShader.Set(quadVertexShader);
             context.Draw(3, 0);
         }
 
         /// <summary>
-        /// Gets the device associated with this SurfacePass instance.
+        /// Gets the device which created this instance.
         /// </summary>
         public Device Device { get; private set; }
 

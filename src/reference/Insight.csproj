@@ -67,13 +67,59 @@
     <Compile Include="EyeDiffraction.cs" />
     <Compile Include="Layers\StructuralLayer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="SurfacePass.cs" />
     <Compile Include="GraphicsResource.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\SurfacePass\pass.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\SurfacePass\vs.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\DiffractionEngine\tex2buf.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\DiffractionEngine\buf2tex.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\DiffractionEngine\spectrum.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\DiffractionEngine\normalize.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\ConvolutionEngine\rescale.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\ConvolutionEngine\compose.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\ConvolutionEngine\zeropad.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\ConvolutionEngine\multiply.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\ConvolutionEngine\output.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Shaders\Layers\structural.hlsl" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
