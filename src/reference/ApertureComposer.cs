@@ -68,13 +68,15 @@ namespace Insight
         /// <param name="output">The output render target.</param>
         /// <param name="profile">The optical profile to use.</param>
         /// <param name="pass">A SurfacePass instance to use.</param>
-        public void Compose(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass)
+        /// <param name="time">The elapsed time.</param>
+        /// <param name="dt">The time since last call.</param>
+        public void Compose(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass, double time, double dt)
         {
             context.ClearRenderTargetView(output.RTV, Color4.White);
             context.OutputMerger.SetBlendState(blendState);
 
             foreach (ApertureLayer layer in layers)
-                layer.ApplyLayer(context, output, profile, pass);
+                layer.ApplyLayer(context, output, profile, pass, time, dt);
 
             context.OutputMerger.SetBlendState(null);
         }

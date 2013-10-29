@@ -13,20 +13,25 @@ namespace Insight.Layers
     /// </summary>
     internal class StructuralLayer : ApertureLayer
     {
-        public override void ApplyLayer(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass)
+        public override void ApplyLayer(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass, double time, double dt)
         {
-            DataStream cbuffer = new DataStream(4, true, true);
-            cbuffer.Write<float>((float)profile.Glare);
-            cbuffer.Position = 0;
+            using (DataStream cbuffer = new DataStream(8, true, true))
+            {
+                cbuffer.Write<float>((float)profile.Size);
+                cbuffer.Write<float>((float)profile.Glare);
+                cbuffer.Position = 0;
 
-            pass.Pass(context, Encoding.ASCII.GetString(Resources.Structural), output.Dimensions, output.RTV, null, cbuffer);
-
-            cbuffer.Dispose();
+                pass.Pass(context, Encoding.ASCII.GetString(Resources.Structural), output.Dimensions, output.RTV, null, cbuffer);
+            }
         }
+
+        #region IDisposable
 
         protected override void Dispose(bool disposing)
         {
             /* Nothing to dispose of. */
         }
+
+        #endregion
     }
 }

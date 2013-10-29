@@ -22,7 +22,9 @@ namespace Insight
         /// <param name="output">The output aperture.</param>
         /// <param name="profile">An optical profile.</param>
         /// <param name="pass">A SurfacePass instance.</param>
-        public abstract void ApplyLayer(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass);
+        /// <param name="time">The elapsed time.</param>
+        /// <param name="dt">The time since last call.</param>
+        public abstract void ApplyLayer(DeviceContext context, GraphicsResource output, OpticalProfile profile, SurfacePass pass, double time, double dt);
 
         #region IDisposable
 

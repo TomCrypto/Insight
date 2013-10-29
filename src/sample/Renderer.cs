@@ -139,6 +139,11 @@ namespace Sample
             profile.Glare = (Double)variable.Value;
         }
 
+        private void SizeChange(object sender, Variable variable)
+        {
+            profile.Size = (Double)variable.Value;
+        }
+
         private void ScaleCorrectChange(object sender, Variable variable)
         {
             options.ScaleCorrection = (Boolean)variable.Value;
@@ -166,6 +171,7 @@ namespace Sample
                 mainBar.AddInteger("quality", "Quality", "Diffraction", 1, 4, (int)Settings.quality, 1, "The quality of the diffraction effects (from 1 to 4).");
                 mainBar.AddFloat("fnumber", "f-number", "Diffraction", 1, 16, 1.5, 0.05, 2, "The f-number at which to simulate the aperture.");
                 mainBar.AddFloat("glare", "Glare", "Diffraction", 0, 1, 0, 0.01, 2);
+                mainBar.AddFloat("size", "Size", "Diffraction", 0, 1, 0.5, 0.01, 2);
 
                 mainBar.AddBoolean("scale_correct", "Scale Correction", "Diffraction", "Yes", "No", true);
 
@@ -183,6 +189,7 @@ namespace Sample
 
                 mainBar["fnumber"].VariableChange += FNumberChange;
                 mainBar["glare"].VariableChange += GlareChange;
+                mainBar["size"].VariableChange += SizeChange;
                 mainBar["scale_correct"].VariableChange += ScaleCorrectChange;
 
                 mainBar["rotation_sensitivity"].VariableChange += RotationChange;
@@ -201,6 +208,7 @@ namespace Sample
 
             profile.FNumber = (Double)mainBar["fnumber"].Value;
             options.ScaleCorrection = (Boolean)mainBar["scale_correct"].Value;
+            profile.Size = (Double)mainBar["size"].Value;
 
             if (eyeDiffraction != null) eyeDiffraction.Dispose();
             eyeDiffraction = new EyeDiffraction(device, context, Settings.quality, profile, options);

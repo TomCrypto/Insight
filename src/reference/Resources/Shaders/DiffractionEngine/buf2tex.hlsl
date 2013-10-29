@@ -14,5 +14,5 @@ float main(PixelDefinition pixel) : SV_Target
     uint index = (y * w + x) << 3U;
 
     float2 value = asfloat(buffer.Load2(index));
-	return pow(value.x, 2) + pow(value.y, 2);
+	return dot(value, value);
 }

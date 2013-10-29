@@ -72,6 +72,11 @@ namespace Insight
         /// </summary>
         public double Glare { get; set; }
 
+        /// <summary>
+        /// Gets or sets the size factor.
+        /// </summary>
+        public double Size { get; set; }
+
         // TODO: add a default constructor which sets sensible initial values here
     }
 
@@ -90,7 +95,7 @@ namespace Insight
         private ConvolutionEngine convolution;
 
         /// <summary>
-        /// The graphics device used by this EyeDiffraction instance.
+        /// Gets the device which created this instance.
         /// </summary>
         public Device Device { get; private set; }
 
@@ -142,7 +147,7 @@ namespace Insight
                     diffraction = new DiffractionEngine(Device, Context, DiffractionSize(value));
                     convolution = new ConvolutionEngine(Device, Context, ConvolutionSize(value));
 
-                    aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true, true);
+                    aperture = new GraphicsResource(Device, DiffractionSize(value), Format.R32_Float, true, true, true);
                     spectrum = new GraphicsResource(Device, DiffractionSize(value), Format.R32G32B32A32_Float, true, true);
 
                     quality = value;
@@ -192,9 +197,6 @@ namespace Insight
         /// <summary>
         /// Superimposes eye diffraction effects on a texture, created with render target
         /// and shader resource bind flags. The texture should have a high dynamic range.
-        /// 
-        /// Note the target and source should point to the same resource (fix API later
-        /// on to enforce that somehow).
         /// </summary>
         /// <param name="renderSize">The dimensions of the render target.</param>
         /// <param name="target">The render target to which to render the output.</param>
@@ -202,7 +204,9 @@ namespace Insight
         /// <param name="dt">The time elapsed since the last call, in seconds.</param>
         public void Render(Size renderSize, RenderTargetView target, ShaderResourceView source, double dt = 0)
         {
-            composer.Compose(Context, aperture, Profile, Pass);
+            composer.Compose(Context, aperture, Profile, Pass, Time, dt);
+
+            //Texture2D.ToFile(Context, aperture.Resource, ImageFileFormat.Dds, "aperture.dds"); // use this to visualize the aperture
 
             diffraction.Diffract(Device, Context, Pass, spectrum.Dimensions, spectrum.RTV, aperture.SRV, Profile.FNumber);
 
