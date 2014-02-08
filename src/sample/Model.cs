@@ -174,7 +174,7 @@ namespace Sample
                     List<Vertex> geometry = new List<Vertex>(mesh.FaceCount * 3);
                     String meshName = data.Materials[mesh.MaterialIndex].Name;
 
-                    Console.WriteLine("Loading mesh " + meshName);
+                    //Console.WriteLine("Loading mesh " + meshName);
 
                     if (!mesh.HasTextureCoords(0))
                     {
@@ -318,9 +318,9 @@ namespace Sample
                                     float z = Single.Parse(TrimSplit(line, ' ')[3]);
                                     vector = new Vector3(x, y, z);
                                 }
-                                catch
+                                catch (Exception e)
                                 {
-                                    throw new ArgumentException("invalid model declaration");
+                                    throw new ArgumentException("invalid model declaration", e);
                                 }
 
                                 switch (header)

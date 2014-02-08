@@ -192,31 +192,39 @@ namespace Sample
         {
             try
             {
+                Console.WriteLine(String.Format("Parsing {0} ::= {1}", attributeType, attribute));
+
                 switch (attributeType)
                 {
                     case "string":
                         {
+                            Console.WriteLine("Found string");
                             return attribute;
                         }
 
                     case "bool":
+                        Console.WriteLine("Found bool");
                         if (attribute == "false") return false;
                         if (attribute == "true") return true;
+                        Console.WriteLine("Not a valid bool");
                         break;
 
                     case "int":
                         {
+                            Console.WriteLine("Found int = " + Int32.Parse(attribute));
                             return Int32.Parse(attribute);
                         }
 
                     case "float":
                         {
+                            Console.WriteLine("Found float = " + Double.Parse(attribute));
                             return Double.Parse(attribute);
                         }
 
                     case "float3":
                         {
                             String[] tokens = TrimSplit(attribute, ' ');
+                            Console.WriteLine(String.Format("Found float3 = ({0}, {1}, {2})", Single.Parse(tokens[0]), Single.Parse(tokens[1]), Single.Parse(tokens[2])));
                             return new Vector3(Single.Parse(tokens[0]),
                                                Single.Parse(tokens[1]),
                                                Single.Parse(tokens[2]));
@@ -225,17 +233,20 @@ namespace Sample
                     case "color3":
                         {
                             String[] tokens = TrimSplit(attribute, ' ');
+                            Console.WriteLine(String.Format("Found color3 = ({0}, {1}, {2})", Single.Parse(tokens[0]), Single.Parse(tokens[1]), Single.Parse(tokens[2])));
                             return new Color3(Single.Parse(tokens[0]),
                                               Single.Parse(tokens[1]),
                                               Single.Parse(tokens[2]));
                         }
                 }
 
+                Console.WriteLine("Failed to find attribute type");
                 throw new ArgumentException("Attribute was not assigned.");
             }
-            catch
+            catch (Exception e)
             {
-                throw new ArgumentException("error parsing attribute");
+                Console.WriteLine("Parsing error: " + e.Message);
+                throw new ArgumentException("error parsing attribute", e);
             }
 
             throw new ArgumentException("unknown attribute type " + attributeType);
